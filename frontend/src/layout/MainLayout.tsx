@@ -72,20 +72,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  const userMenu = (
-    <Menu>
-      <Menu.Item key="username" disabled style={{ cursor: 'default' }}>
-        <Text strong>{user?.name}</Text>
-      </Menu.Item>
-      <Menu.Item key="role" disabled style={{ cursor: 'default' }}>
-        <Text type="secondary">{user?.role?.toUpperCase()}</Text>
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={handleLogout}>
-        Logout
-      </Menu.Item>
-    </Menu>
-  );
+  const userMenuItems = [
+    {
+      key: 'username',
+      disabled: true,
+      label: (
+        <Space>
+          <UserOutlined />
+          {user?.name || user?.email}
+        </Space>
+      )
+    },
+    {
+      key: 'divider',
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      label: (
+        <Space onClick={handleLogout}>
+          <LogoutOutlined />
+          Logout
+        </Space>
+      )
+    }
+  ];
+
+  const menuStyle = {
+    width: 256,
+  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -139,17 +154,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             </h1>
           </div>
           {user && (
-            <Dropdown overlay={userMenu} placement="bottomRight">
-              <Avatar 
-                style={{ cursor: 'pointer', backgroundColor: '#1890ff' }} 
-                size="large"
-              >
-                {user.name?.[0]?.toUpperCase()}
-              </Avatar>
+            <Dropdown menu={{ items: userMenuItems, style: menuStyle }} placement="bottomRight">
+              <a onClick={e => e.preventDefault()} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <Avatar style={{ backgroundColor: '#f56a00', marginRight: 8 }} icon={<UserOutlined />} />
+                <Text strong>{user.name || user.email}</Text>
+              </a>
             </Dropdown>
           )}
         </Header>
-        <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>
+        <Content style={{ margin: '24px 16px', padding: 24, background: '#fff' }}>
             <motion.div
                 key={location.pathname}
                 initial={{ opacity: 0, y: 20 }}
