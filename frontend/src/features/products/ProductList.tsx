@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button, Space, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import { AgGridReact } from 'ag-grid-react';
@@ -11,8 +11,10 @@ import ProductModal from '../../components/ProductModal';
 import StatisticsCards from '../../components/StatisticsCards';
 import { formatDate, getColor } from '../../utils';
 import { GRID_CONFIG } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 const ProductList: React.FC = () => {
+  const { user } = useAuth();
   const {
     products,
     loading,
@@ -52,71 +54,80 @@ const ProductList: React.FC = () => {
     await deleteProduct(id);
   };
 
-  const columnDefs: ColDef[] = [
-    { field: 'id', headerName: 'ID', width: 80 },
-    { field: 'name', headerName: 'Name', flex: 1 },
-    { field: 'sku', headerName: 'SKU', width: 150 },
-    { field: 'unit_price', headerName: 'Unit Price', width: 120, valueFormatter: params => `$${params.value}` },
-    { 
-      field: 'sizes', 
-      headerName: 'Sizes', 
-      width: 180,
-      cellRenderer: (params: any) => (
-        <Space wrap size={[0, 8]}>
-          {params.value?.map((size: string) => (
-            <Tag key={size}>{size}</Tag>
-          ))}
-        </Space>
-      ),
-      valueFormatter: params => Array.isArray(params.value) ? params.value.join(', ') : params.value,
-    },
-    { 
-      field: 'colors', 
-      headerName: 'Colors', 
-      width: 180, 
-      cellRenderer: (params: any) => (
-        <Space wrap size={[0, 8]}>
-         {params.value?.map((color: string) => (
-           <Tag key={color} color={getColor(color)}>{color}</Tag>
-         ))}
-       </Space>
-     ),
-     valueFormatter: params => Array.isArray(params.value) ? params.value.join(', ') : params.value,
-    },
-    { field: 'created_at', headerName: 'Created', width: 150, valueFormatter: (params: any) => formatDate(params.value) },
-    {
-      headerName: 'Actions',
-      width: 150,
-      cellRenderer: (params: any) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => openEditModal(params.data)}
-          />
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(params.data.id)}
-          />
-        </Space>
-      ),
-    },
-  ];
+  const columnDefs: ColDef[] = useMemo(() => {
+    const baseCols: ColDef[] = [
+      { field: 'id', headerName: 'ID', width: 80 },
+      { field: 'name', headerName: 'Name', flex: 1 },
+      { field: 'sku', headerName: 'SKU', width: 150 },
+      { field: 'unit_price', headerName: 'Unit Price', width: 120, valueFormatter: params => `$${params.value}` },
+      { 
+        field: 'sizes', 
+        headerName: 'Sizes', 
+        width: 180,
+        cellRenderer: (params: any) => (
+          <Space wrap size={[0, 8]}>
+            {params.value?.map((size: string) => (
+              <Tag key={size}>{size}</Tag>
+            ))}
+          </Space>
+        ),
+        valueFormatter: params => Array.isArray(params.value) ? params.value.join(', ') : params.value,
+      },
+      { 
+        field: 'colors', 
+        headerName: 'Colors', 
+        width: 180, 
+        cellRenderer: (params: any) => (
+          <Space wrap size={[0, 8]}>
+           {params.value?.map((color: string) => (
+             <Tag key={color} color={getColor(color)}>{color}</Tag>
+           ))}
+         </Space>
+       ),
+       valueFormatter: params => Array.isArray(params.value) ? params.value.join(', ') : params.value,
+      },
+      { field: 'created_at', headerName: 'Created', width: 150, valueFormatter: (params: any) => formatDate(params.value) },
+    ];
+
+    if (user?.role !== 'viewer') {
+      baseCols.push({
+        headerName: 'Actions',
+        width: 150,
+        cellRenderer: (params: any) => (
+          <Space>
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => openEditModal(params.data)}
+            />
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(params.data.id)}
+            />
+          </Space>
+        ),
+      });
+    }
+
+    return baseCols;
+  }, [user]);
 
   return (
     <div>
       <StatisticsCards products={products} loading={loading} />
       <div style={{ marginBottom: 16 }}>
         <Space>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={openCreateModal}
-          >
-            Add Product
-          </Button>
+          {user?.role !== 'viewer' && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={openCreateModal}
+            >
+              Add Product
+            </Button>
+          )}
           <Button
             icon={<ReloadOutlined />}
             onClick={fetchProducts}

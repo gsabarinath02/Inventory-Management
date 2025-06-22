@@ -61,13 +61,15 @@ interface InwardLogTableProps {
     onDataChange: () => void;
     availableColors: string[];
     availableSizes: string[];
+    isReadOnly: boolean;
 }
 
 const InwardLogTable: React.FC<InwardLogTableProps> = ({ 
     productId, 
     onDataChange, 
     availableColors, 
-    availableSizes 
+    availableSizes,
+    isReadOnly
 }) => {
     const { logs, loading, createLog, updateLog, deleteLog } = useInwardLogs(productId);
     const [form] = Form.useForm();
@@ -113,13 +115,13 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         form.resetFields();
     };
 
-    const columns = [
-        { title: 'Date', dataIndex: 'date', editable: true, inputType: 'date', render: (text: string) => dayjs(text).format('YYYY-MM-DD')},
-        { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select', options: availableColors },
-        { title: 'Size', dataIndex: 'size', editable: true, inputType: 'select', options: availableSizes },
-        { title: 'Quantity', dataIndex: 'quantity', editable: true, inputType: 'number' },
-        { title: 'Category', dataIndex: 'category', editable: true, inputType: 'select', options: ['Supply', 'Return'] },
-        { title: 'Stakeholder', dataIndex: 'stakeholder_name', editable: true },
+    let columns = [
+        { title: 'Date', dataIndex: 'date', editable: true, inputType: 'date' as const, render: (text: string) => dayjs(text).format('YYYY-MM-DD')},
+        { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select' as const, options: availableColors },
+        { title: 'Size', dataIndex: 'size', editable: true, inputType: 'select' as const, options: availableSizes },
+        { title: 'Quantity', dataIndex: 'quantity', editable: true, inputType: 'number' as const },
+        { title: 'Category', dataIndex: 'category', editable: true, inputType: 'select' as const, options: ['Supply', 'Return'] },
+        { title: 'Stakeholder', dataIndex: 'stakeholder_name', editable: true, inputType: 'text' as const },
         {
             title: 'Operation',
             dataIndex: 'operation',
@@ -139,6 +141,10 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
             },
         },
     ];
+
+    if (isReadOnly) {
+        columns = columns.filter(col => col.dataIndex !== 'operation');
+    }
 
     const mergedColumns = columns.map(col => {
         if (!col.editable) {
@@ -179,11 +185,10 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
 
     return (
         <Form form={form} component={false}>
-             {!isAdding ? (
+             {!isAdding && !isReadOnly ? (
                 <Button onClick={handleAddClick} type="primary" style={{ marginBottom: 16 }}>Add a row</Button>
-            ) : (
-                renderNewRowForm()
-            )}
+            ) : null} 
+            {isAdding && !isReadOnly && renderNewRowForm()}
             <Table
                 components={{ body: { cell: EditableCell } }}
                 bordered

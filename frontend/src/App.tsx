@@ -38,7 +38,7 @@ const AppRoutes: React.FC = () => {
       } />
       
       <Route path="/upload" element={
-        <ProtectedRoute requiredRole="manager">
+        <ProtectedRoute>
           <MainLayout>
             <Upload />
           </MainLayout>

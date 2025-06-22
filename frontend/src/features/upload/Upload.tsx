@@ -5,12 +5,14 @@ import { useProducts } from '../../hooks/useProducts';
 import InwardLogTable from './InwardLogTable';
 import SalesLogTable from './SalesLogTable';
 import { Product } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 const Upload: React.FC = () => {
     const { products, loading: productsLoading } = useProducts();
+    const { user } = useAuth();
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [selectedLogType, setSelectedLogType] = useState<string | null>(null);
 
@@ -75,6 +77,7 @@ const Upload: React.FC = () => {
                                     onDataChange={handleDataChange}
                                     availableColors={selectedProduct.colors}
                                     availableSizes={selectedProduct.sizes}
+                                    isReadOnly={user?.role === 'viewer'}
                                 />
                             </motion.div>
                         )}
@@ -93,6 +96,7 @@ const Upload: React.FC = () => {
                                     onDataChange={handleDataChange} 
                                     availableColors={selectedProduct.colors}
                                     availableSizes={selectedProduct.sizes}
+                                    isReadOnly={user?.role === 'viewer'}
                                 />
                             </motion.div>
                         )}
