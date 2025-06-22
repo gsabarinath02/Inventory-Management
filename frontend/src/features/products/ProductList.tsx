@@ -105,10 +105,6 @@ const ProductList: React.FC = () => {
     },
   ];
 
-  const onGridReady = (params: GridReadyEvent) => {
-    params.api.sizeColumnsToFit();
-  };
-
   return (
     <div>
       <StatisticsCards products={products} loading={loading} />
@@ -134,7 +130,6 @@ const ProductList: React.FC = () => {
         <AgGridReact
           columnDefs={columnDefs}
           rowData={products}
-          onGridReady={onGridReady}
           pagination={true}
           paginationPageSize={GRID_CONFIG.DEFAULT_PAGE_SIZE}
           paginationPageSizeSelector={[...GRID_CONFIG.PAGE_SIZE_OPTIONS]}

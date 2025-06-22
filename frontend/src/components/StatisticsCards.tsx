@@ -12,8 +12,8 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ products, loading = f
   const totalValue = calculateTotalValue(products);
 
   return (
-    <Row gutter={16} style={{ marginBottom: 16 }}>
-      <Col span={6}>
+    <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+      <Col xs={24} sm={12} md={6}>
         <Card>
           <Statistic 
             title="Total Products" 
@@ -22,7 +22,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ products, loading = f
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col xs={24} sm={12} md={6}>
         <Card>
           <Statistic 
             title="Total Value" 
@@ -32,7 +32,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ products, loading = f
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col xs={24} sm={12} md={6}>
         <Card>
           <Statistic 
             title="Average Price" 
@@ -43,7 +43,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ products, loading = f
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col xs={24} sm={12} md={6}>
         <Card>
           <Statistic 
             title="Active Products" 

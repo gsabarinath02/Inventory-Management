@@ -7,7 +7,9 @@ import {
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
-  DownOutlined
+  DownOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -25,6 +27,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [collapsed, setCollapsed] = React.useState(false);
 
   const getIcon = (iconName: string) => {
     switch (iconName) {
@@ -69,52 +72,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  const userMenuItems = [
-    {
-      key: 'profile',
-      icon: <UserOutlined />,
-      label: 'Profile',
-      onClick: () => navigate('/profile'),
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
-      onClick: () => navigate('/settings'),
-    },
-    {
-      type: 'divider' as const,
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Logout',
-      onClick: handleLogout,
-    },
-  ];
-
-  const userDropdown = (
-    <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-      <Button type="text" style={{ height: 'auto', padding: '8px 12px' }}>
-        <Space>
-          <Avatar icon={<UserOutlined />} />
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontWeight: 500, color: '#1890ff' }}>
-              {user?.name}
-            </div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {user?.role?.toUpperCase()}
-            </Text>
-          </div>
-          <DownOutlined />
-        </Space>
-      </Button>
-    </Dropdown>
+  const userMenu = (
+    <Menu>
+      <Menu.Item key="username" disabled style={{ cursor: 'default' }}>
+        <Text strong>{user?.name}</Text>
+      </Menu.Item>
+      <Menu.Item key="role" disabled style={{ cursor: 'default' }}>
+        <Text type="secondary">{user?.role?.toUpperCase()}</Text>
+      </Menu.Item>
+      <Menu.Divider />
+      <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={handleLogout}>
+        Logout
+      </Menu.Item>
+    </Menu>
   );
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider width={200} theme="dark">
+      <Sider width={200} theme="dark" collapsed={collapsed}>
         <div style={{ 
           height: 32, 
           margin: 16, 
@@ -127,7 +102,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           fontSize: '14px',
           fontWeight: 500
         }}>
-          IMS
+          {collapsed ? 'IMS' : 'Inventory System'}
         </div>
         <Menu
           mode="inline"
@@ -147,10 +122,32 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           alignItems: 'center',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
-          <h1 style={{ margin: 0, color: '#1890ff', fontWeight: 600 }}>
-            Inventory Management System
-          </h1>
-          {user && userDropdown}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Button
+                type="text"
+                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setCollapsed(!collapsed)}
+                style={{
+                    fontSize: '16px',
+                    width: 64,
+                    height: 64,
+                    marginRight: '16px'
+                }}
+            />
+            <h1 style={{ margin: 0, color: '#1890ff', fontWeight: 600 }}>
+              Inventory Management System
+            </h1>
+          </div>
+          {user && (
+            <Dropdown overlay={userMenu} placement="bottomRight">
+              <Avatar 
+                style={{ cursor: 'pointer', backgroundColor: '#1890ff' }} 
+                size="large"
+              >
+                {user.name?.[0]?.toUpperCase()}
+              </Avatar>
+            </Dropdown>
+          )}
         </Header>
         <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>
             <motion.div
