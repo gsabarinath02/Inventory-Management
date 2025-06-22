@@ -1,4 +1,3 @@
-import React, { useEffect } from 'react';
 import { Form, Input, InputNumber, Select, Alert, Button, Space, Tag } from 'antd';
 import { CustomTagProps } from 'rc-select/lib/BaseSelect';
 import { ProductFormData, Product } from '../types';

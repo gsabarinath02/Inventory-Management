@@ -28,8 +28,8 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      DATABASE_URL: postgresql+psycopg2://postgres:password@postgres/inventory_db
-      SECRET_KEY: your-secret-key
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/inventory_db
+      SECRET_KEY: "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --app-dir /app
     ports:
       - '8000:8000'

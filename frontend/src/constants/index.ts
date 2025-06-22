@@ -34,6 +34,7 @@ export const NAVIGATION = {
     HOME: '/',
     PRODUCT_VIEW: '/product-view',
     UPLOAD: '/upload',
+    USERS: '/users',
   },
   MENU_ITEMS: [
     {
@@ -51,7 +52,7 @@ export const NAVIGATION = {
       label: 'Upload Data',
       icon: 'UploadOutlined',
     },
-  ],
+  ] as const,
 } as const;
 
 // Messages

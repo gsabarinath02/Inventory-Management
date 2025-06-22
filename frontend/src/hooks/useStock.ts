@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { StockMatrix, DetailedStockData, StockAPIResponse } from '../types';
 import { stockAPI } from '../services/api';
 import { showError } from '../utils';

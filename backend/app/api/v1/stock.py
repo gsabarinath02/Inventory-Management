@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user
 from app.core.crud.product import get_product
 from app.core.crud.inward import get_inward_logs_by_product
 from app.core.crud.sales import get_sales_logs_by_product
@@ -15,12 +15,13 @@ router = APIRouter()
     summary="Get stock matrix for a product",
     description="Calculates and returns the current stock levels for each color/size variant of a product."
 )
-def get_stock_matrix(
+async def get_stock_matrix(
     product_id: int,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     try:
-        product = get_product(db, product_id=product_id)
+        product = await get_product(db, product_id=product_id)
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
@@ -28,8 +29,8 @@ def get_stock_matrix(
         if not product.colors or not product.sizes:
             return {}
 
-        inward_logs = get_inward_logs_by_product(db, product_id=product_id)
-        sales_logs = get_sales_logs_by_product(db, product_id=product_id)
+        inward_logs = await get_inward_logs_by_product(db, product_id=product_id)
+        sales_logs = await get_sales_logs_by_product(db, product_id=product_id)
 
         stock_matrix = {color: {size: 0 for size in product.sizes} for color in product.colors}
 
@@ -60,16 +61,17 @@ def get_stock_matrix(
     summary="Get detailed stock information for a product",
     description="Returns detailed information about the stock levels of a product."
 )
-def get_detailed_stock(
+async def get_detailed_stock(
     product_id: int,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    product = get_product(db, product_id=product_id)
+    product = await get_product(db, product_id=product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    inward_logs = get_inward_logs_by_product(db, product_id=product_id)
-    sales_logs = get_sales_logs_by_product(db, product_id=product_id)
+    inward_logs = await get_inward_logs_by_product(db, product_id=product_id)
+    sales_logs = await get_sales_logs_by_product(db, product_id=product_id)
 
     return {
         "product": product,

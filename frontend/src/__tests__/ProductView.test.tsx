@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { rest } from 'msw';
 import { setupServer } from 'msw/node';
 import ProductView from '../features/products/ProductView';
