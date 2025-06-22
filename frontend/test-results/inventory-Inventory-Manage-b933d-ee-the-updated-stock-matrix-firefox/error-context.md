@@ -1,0 +1,51 @@
+# Page snapshot
+
+```yaml
+- complementary:
+  - menu:
+    - menuitem "shopping-cart Products":
+      - img "shopping-cart"
+      - text: Products
+    - menuitem "bar-chart Product View":
+      - img "bar-chart"
+      - text: Product View
+    - menuitem "upload Upload Data":
+      - img "upload"
+      - text: Upload Data
+- banner:
+  - heading "Inventory Management System" [level=1]
+- main:
+  - text: Total Products 0 Total Value $ 0
+  - button "plus Add Product":
+    - img "plus"
+    - text: Add Product
+  - button "reload Refresh":
+    - img "reload"
+    - text: Refresh
+  - treegrid:
+    - rowgroup:
+      - row "ID Name SKU Unit Price Sizes Colors Created Actions":
+        - columnheader "ID"
+        - columnheader "Name"
+        - columnheader "SKU"
+        - columnheader "Unit Price"
+        - columnheader "Sizes"
+        - columnheader "Colors"
+        - columnheader "Created"
+        - columnheader "Actions"
+    - rowgroup
+    - rowgroup
+    - rowgroup
+    - rowgroup
+    - rowgroup
+    - rowgroup
+    - text: No Rows To Show
+  - text: "Page Size:"
+  - combobox "Page Size": "10"
+  - status: 0 to 0 of 0
+  - button "First Page" [disabled]: 
+  - button "Previous Page" [disabled]: 
+  - status: Page 0 of 0
+  - button "Next Page" [disabled]: 
+  - button "Last Page" [disabled]: 
+```
