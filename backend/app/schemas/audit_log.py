@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class AuditLogBase(BaseModel):
     user_id: int
@@ -20,4 +20,10 @@ class AuditLogOut(AuditLogBase):
     timestamp: datetime
 
     class Config:
-        orm_mode = True 
+        orm_mode = True
+
+class AuditLogBulkDeleteRequest(BaseModel):
+    log_ids: List[int]
+
+class AuditLogDeleteResponse(BaseModel):
+    deleted_count: int 

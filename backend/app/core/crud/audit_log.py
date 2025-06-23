@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select, delete
 from datetime import datetime
 from typing import List, Optional
 
@@ -37,3 +37,18 @@ async def get_audit_logs(
     
     result = await db.execute(query)
     return result.scalars().all() 
+
+async def delete_audit_log(db: AsyncSession, log_id: int) -> bool:
+    result = await db.execute(delete(AuditLog).where(AuditLog.id == log_id))
+    await db.commit()
+    return result.rowcount > 0
+
+async def bulk_delete_audit_logs(db: AsyncSession, log_ids: list[int]) -> int:
+    result = await db.execute(delete(AuditLog).where(AuditLog.id.in_(log_ids)))
+    await db.commit()
+    return result.rowcount
+
+async def delete_old_audit_logs(db: AsyncSession, before_date: datetime) -> int:
+    result = await db.execute(delete(AuditLog).where(AuditLog.timestamp < before_date))
+    await db.commit()
+    return result.rowcount 

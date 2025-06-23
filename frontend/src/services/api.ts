@@ -108,4 +108,24 @@ export const getAuditLogs = async (params: any) => {
   }
 };
 
+export const deleteAuditLog = async (logId: number) => {
+  try {
+    const response = await api.delete(`/audit-logs/${logId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting audit log:", error);
+    throw error;
+  }
+};
+
+export const bulkDeleteAuditLogs = async (logIds: number[]) => {
+  try {
+    const response = await api.post(`/audit-logs/bulk-delete`, { log_ids: logIds });
+    return response.data;
+  } catch (error) {
+    console.error("Error bulk deleting audit logs:", error);
+    throw error;
+  }
+};
+
 export default api; 

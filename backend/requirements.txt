@@ -10,3 +10,4 @@ python-multipart
 email-validator
 pydantic-settings
 asyncpg 
+apscheduler 

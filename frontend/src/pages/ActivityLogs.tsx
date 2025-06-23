@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import {
-  Card, Table, Typography, Form, Row, Col, Select, DatePicker, Button, Tag, Space, Collapse
+  Card, Table, Typography, Form, Row, Col, Select, DatePicker, Button, Tag, Space, Collapse, Popconfirm, message
 } from 'antd';
 import { TablePaginationConfig } from 'antd/lib/table';
 import { AuditLog } from '../types';
@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { useAuditLogs } from '../hooks/useAuditLogs';
 import { useUsers } from '../hooks/useUsers';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import type { Key } from 'react';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -50,9 +51,11 @@ const prettyJSON = (obj: any) => {
 };
 
 const ActivityLogsPage: React.FC = () => {
-  const { logs, loading, pagination, fetchLogs, setPagination } = useAuditLogs();
+  const { logs, loading, pagination, fetchLogs, setPagination, deleteLog, bulkDeleteLogs } = useAuditLogs();
   const { users, loading: usersLoading } = useUsers();
   const [form] = Form.useForm();
+  const [selectedRowKeys, setSelectedRowKeys] = React.useState<Key[]>([]);
+  const userRole = localStorage.getItem('userRole') || 'admin'; // Replace with real user role logic
 
   useEffect(() => {
     fetchLogs(form.getFieldsValue(), pagination.current, pagination.pageSize);
@@ -225,6 +228,45 @@ const ActivityLogsPage: React.FC = () => {
     },
   ];
 
+  const handleDelete = async (logId: number) => {
+    try {
+      await deleteLog(logId, form.getFieldsValue(), pagination.current, pagination.pageSize);
+      message.success('Log deleted successfully');
+      setSelectedRowKeys(selectedRowKeys.filter(id => id !== logId));
+    } catch {
+      message.error('Failed to delete log');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await bulkDeleteLogs(selectedRowKeys as number[], form.getFieldsValue(), pagination.current, pagination.pageSize);
+      message.success(`${selectedRowKeys.length} logs deleted successfully`);
+      setSelectedRowKeys([]);
+    } catch {
+      message.error('Failed to delete selected logs');
+    }
+  };
+
+  const columnsWithDelete = [
+    ...columns,
+    userRole === 'admin' ? {
+      title: 'Delete',
+      key: 'delete',
+      width: 80,
+      render: (_: any, record: AuditLog) => (
+        <Popconfirm
+          title="Are you sure you want to delete this log?"
+          onConfirm={() => handleDelete(record.id)}
+          okText="Yes"
+          cancelText="No"
+        >
+          <Button danger icon={<DeleteOutlined />} size="small" />
+        </Popconfirm>
+      ),
+    } : null,
+  ].filter(Boolean);
+
   return (
     <Card style={{ margin: 24, boxShadow: '0 2px 8px #f0f1f2' }}>
       <Title level={2}>Activity Logs</Title>
@@ -270,7 +312,11 @@ const ActivityLogsPage: React.FC = () => {
       <DiffLegend />
       <Card bordered style={{ boxShadow: '0 1px 4px #f0f1f2' }}>
         <Table
-          columns={columns}
+          rowSelection={userRole === 'admin' ? {
+            selectedRowKeys,
+            onChange: (keys: Key[]) => setSelectedRowKeys(keys),
+          } : undefined}
+          columns={columnsWithDelete as any}
           dataSource={logs}
           loading={loading}
           pagination={{ ...pagination, showSizeChanger: true }}
@@ -281,6 +327,16 @@ const ActivityLogsPage: React.FC = () => {
           style={{ background: '#fff' }}
         />
       </Card>
+      {userRole === 'admin' && selectedRowKeys.length > 0 && (
+        <Popconfirm
+          title={`Are you sure you want to delete ${selectedRowKeys.length} selected logs?`}
+          onConfirm={handleBulkDelete}
+          okText="Yes"
+          cancelText="No"
+        >
+          <Button danger style={{ margin: '16px 0' }} icon={<DeleteOutlined />}>Delete Selected</Button>
+        </Popconfirm>
+      )}
     </Card>
   );
 };

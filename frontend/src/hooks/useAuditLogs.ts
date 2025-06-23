@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { getAuditLogs } from '../services/api';
+import { getAuditLogs, deleteAuditLog, bulkDeleteAuditLogs } from '../services/api';
 import { AuditLog } from '../types';
 
 export const useAuditLogs = () => {
@@ -36,5 +36,15 @@ export const useAuditLogs = () => {
         }
     }, []);
 
-    return { logs, loading, error, pagination, fetchLogs, setPagination };
+    const deleteLog = useCallback(async (logId: number, filters: any, page: number, pageSize: number) => {
+        await deleteAuditLog(logId);
+        await fetchLogs(filters, page, pageSize);
+    }, [fetchLogs]);
+
+    const bulkDeleteLogs = useCallback(async (logIds: number[], filters: any, page: number, pageSize: number) => {
+        await bulkDeleteAuditLogs(logIds);
+        await fetchLogs(filters, page, pageSize);
+    }, [fetchLogs]);
+
+    return { logs, loading, error, pagination, fetchLogs, setPagination, deleteLog, bulkDeleteLogs };
 }; 

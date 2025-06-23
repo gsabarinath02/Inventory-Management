@@ -27,5 +27,5 @@ __all__ = [
     "User",
     
     # Audit Log schemas
-    "AuditLogCreate", "AuditLogOut",
+    "AuditLogCreate", "AuditLogOut", "AuditLogBulkDeleteRequest", "AuditLogDeleteResponse",
 ]

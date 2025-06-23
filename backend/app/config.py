@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     DEBUG: bool = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")
 
+    ACTIVITY_LOG_RETENTION_DAYS: int = int(os.getenv("ACTIVITY_LOG_RETENTION_DAYS", 60))
+
     class Config:
         case_sensitive = True
 
