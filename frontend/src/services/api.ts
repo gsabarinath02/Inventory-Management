@@ -77,4 +77,35 @@ export const salesAPI = {
   delete: (logId: number) => api.delete(`${API_ENDPOINTS.SALES}/${logId}`),
 };
 
+export const getUsers = async () => {
+  try {
+    const response = await api.get('/users/');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw error;
+  }
+};
+
+export const getSalesLogs = async (productId: number) => {
+  try {
+    const response = await api.get<SalesLog[]>(`${API_ENDPOINTS.SALES}/${productId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching sales logs:", error);
+    throw error;
+  }
+};
+
+// Audit Log API
+export const getAuditLogs = async (params: any) => {
+  try {
+    const response = await api.get('/audit-logs/', { params });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching audit logs:", error);
+    throw error;
+  }
+};
+
 export default api; 

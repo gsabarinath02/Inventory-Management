@@ -7,6 +7,7 @@ import ProductView from './features/products/ProductView';
 import Upload from './features/upload/Upload';
 import Login from './pages/Login';
 import UserManagement from './pages/UserManagement';
+import ActivityLogsPage from './pages/ActivityLogs';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -49,6 +50,14 @@ const AppRoutes: React.FC = () => {
         <ProtectedRoute requiredRole="admin">
           <MainLayout>
             <UserManagement />
+          </MainLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/activity-logs" element={
+        <ProtectedRoute requiredRole="admin">
+          <MainLayout>
+            <ActivityLogsPage />
           </MainLayout>
         </ProtectedRoute>
       } />

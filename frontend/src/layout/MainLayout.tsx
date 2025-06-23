@@ -1,15 +1,14 @@
 import React from 'react';
-import { Layout, Menu, Dropdown, Button, Space, Avatar, Typography } from 'antd';
+import { Layout, Menu, Dropdown, Button, Space, Avatar, Typography, MenuProps } from 'antd';
 import { 
   ShoppingCartOutlined, 
   BarChartOutlined,
   UploadOutlined,
   UserOutlined,
   LogoutOutlined,
-  SettingOutlined,
-  DownOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
+  AuditOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -58,6 +57,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         icon: <UserOutlined />,
         label: 'User Management',
       });
+      baseItems.push({
+        key: '/activity-logs',
+        icon: <AuditOutlined />,
+        label: 'Activity Logs',
+      });
     }
 
     return baseItems;
@@ -72,7 +76,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  const userMenuItems = [
+  const userMenuItems: MenuProps['items'] = [
     {
       key: 'username',
       disabled: true,

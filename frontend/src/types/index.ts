@@ -86,4 +86,17 @@ export interface ApiResponse<T> {
 export interface ApiError {
     detail: string;
     status_code?: number;
+}
+
+export interface AuditLog {
+  id: number;
+  timestamp: string;
+  user_id: number;
+  username: string;
+  action: string;
+  entity: string;
+  entity_id: number;
+  field_changed?: string;
+  old_value?: string;
+  new_value?: string;
 } 

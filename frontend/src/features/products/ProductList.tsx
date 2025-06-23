@@ -1,17 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { Button, Space, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
-import { AgGridReact } from 'ag-grid-react';
-import { ColDef, GridReadyEvent } from 'ag-grid-community';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useProducts } from '../../hooks/useProducts';
 import { Product } from '../../types';
 import ProductModal from '../../components/ProductModal';
 import StatisticsCards from '../../components/StatisticsCards';
+import { useAuth } from '../../context/AuthContext';
 import { formatDate, getColor } from '../../utils';
 import { GRID_CONFIG } from '../../constants';
-import { useAuth } from '../../context/AuthContext';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef } from 'ag-grid-community';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
 
 const ProductList: React.FC = () => {
   const { user } = useAuth();
