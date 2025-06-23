@@ -1,10 +1,11 @@
 from sqlalchemy import event
 from sqlalchemy.orm import Session, object_session
 from sqlalchemy.orm.attributes import get_history
-import asyncio
+import json
+import datetime
+import enum
 
 from ... import models, schemas
-from .. import crud
 from ..logging_context import current_user_var
 
 def get_session(target_instance):
@@ -17,12 +18,45 @@ def get_session(target_instance):
         return None
     return session
 
+def model_to_dict(obj):
+    """Serialize a SQLAlchemy model instance to a JSON-serializable dict."""
+    result = {}
+    for c in obj.__table__.columns:
+        value = getattr(obj, c.name)
+        if isinstance(value, enum.Enum):
+            value = value.value
+        elif isinstance(value, (datetime.datetime, datetime.date)):
+            value = value.isoformat()
+        result[c.name] = value
+    return result
+
+def safe_json(val):
+    if val is None:
+        return None
+    if isinstance(val, (dict, list, int, float, bool)):
+        return json.dumps(val)
+    try:
+        # Try to parse as JSON
+        return json.dumps(json.loads(val))
+    except Exception:
+        return json.dumps(str(val))
+
 def setup_audit_logging():
     @event.listens_for(Session, "after_flush")
     def after_flush(session, flush_context):
         user = current_user_var.get()
         if not user:
             return
+
+        # Debug: print what is being seen
+        print("[AUDIT] session.new:", [type(obj).__name__ for obj in session.new])
+        print("[AUDIT] session.dirty:", [type(obj).__name__ for obj in session.dirty])
+        print("[AUDIT] session.deleted:", [type(obj).__name__ for obj in session.deleted])
+        for obj in session.deleted:
+            try:
+                print(f"[AUDIT-DETAIL] Deleted: {type(obj).__name__} (ID: {getattr(obj, 'id', None)})")
+            except Exception as e:
+                print(f"[AUDIT-DETAIL] Error printing deleted object: {e}")
 
         # Initialize pending logs if not present
         if 'pending_audit_logs' not in session.info:
@@ -34,7 +68,7 @@ def setup_audit_logging():
                 log_entry = schemas.AuditLogCreate(
                     user_id=user.id, username=user.email, action="CREATE",
                     entity=obj.__class__.__name__, entity_id=obj.id,
-                    new_value=str({c.name: getattr(obj, c.name) for c in obj.__table__.columns if c.name != 'id'})
+                    new_value=json.dumps(model_to_dict(obj))
                 )
                 session.info['pending_audit_logs'].append(log_entry)
 
@@ -44,12 +78,23 @@ def setup_audit_logging():
                 for attr in obj.__mapper__.attrs:
                     history = get_history(obj, attr.key)
                     if history.has_changes():
+                        old_val = history.deleted[0] if history.deleted else None
+                        new_val = history.added[0] if history.added else None
+                        # Serialize enums/dates
+                        if isinstance(old_val, enum.Enum):
+                            old_val = old_val.value
+                        if isinstance(new_val, enum.Enum):
+                            new_val = new_val.value
+                        if isinstance(old_val, (datetime.datetime, datetime.date)):
+                            old_val = old_val.isoformat()
+                        if isinstance(new_val, (datetime.datetime, datetime.date)):
+                            new_val = new_val.isoformat()
                         log_entry = schemas.AuditLogCreate(
                             user_id=user.id, username=user.email, action="UPDATE",
                             entity=obj.__class__.__name__, entity_id=obj.id,
                             field_changed=attr.key,
-                            old_value=str(history.deleted[0]) if history.deleted else None,
-                            new_value=str(history.added[0]) if history.added else None,
+                            old_value=safe_json(old_val),
+                            new_value=safe_json(new_val),
                         )
                         session.info['pending_audit_logs'].append(log_entry)
         
@@ -59,7 +104,7 @@ def setup_audit_logging():
                 log_entry = schemas.AuditLogCreate(
                     user_id=user.id, username=user.email, action="DELETE",
                     entity=obj.__class__.__name__, entity_id=obj.id,
-                    old_value=str({c.name: getattr(obj, c.name) for c in obj.__table__.columns if c.name != 'id'})
+                    old_value=json.dumps(model_to_dict(obj))
                 )
                 session.info['pending_audit_logs'].append(log_entry)
 
@@ -71,76 +116,23 @@ def setup_audit_logging():
                 session.add(db_log)
             session.info['pending_audit_logs'] = []
 
-@event.listens_for(models.Product, 'after_insert')
-@event.listens_for(models.InwardLog, 'after_insert')
-@event.listens_for(models.SalesLog, 'after_insert')
-def after_insert_listener(mapper, connection, target):
-    user = current_user_var.get()
-    if not user: return
-
-    session = get_session(target)
-    if not session: return
-
-    log_entry = schemas.AuditLogCreate(
-        user_id=user.id,
-        username=user.email,
-        action="CREATE",
-        entity=target.__class__.__name__,
-        entity_id=target.id,
-        new_value=str({c.name: getattr(target, c.name) for c in target.__table__.columns})
-    )
-    # Since this is an async app, we cannot call await here.
-    # This is a major challenge with SQLAlchemy events in async.
-    # A common pattern is to dispatch these to a background task or a separate sync worker.
-    # For simplicity, we will try to run this in a nested event loop if possible,
-    # but this is not recommended for production.
-    # A better solution might be to collect changes and log them at the end of the request.
-    # Let's assume a sync function for now and address async challenge later.
-    # crud.audit_log.create_audit_log(session, log_entry) - This needs to be async.
-
-@event.listens_for(models.Product, 'after_update')
-@event.listens_for(models.InwardLog, 'after_update')
-@event.listens_for(models.SalesLog, 'after_update')
-def after_update_listener(mapper, connection, target):
-    user = current_user_var.get()
-    if not user: return
-
-    session = get_session(target)
-    if not session: return
-    
-    for attr in target.__mapper__.attrs:
-        history = get_history(target, attr.key)
-        if history.has_changes():
-            log_entry = schemas.AuditLogCreate(
-                user_id=user.id,
-                username=user.email,
-                action="UPDATE",
-                entity=target.__class__.__name__,
-                entity_id=target.id,
-                field_changed=attr.key,
-                old_value=str(history.deleted[0]) if history.deleted else None,
-                new_value=str(history.added[0]) if history.added else None,
-            )
-            # Same async challenge as above
-            # crud.audit_log.create_audit_log(session, log_entry)
-
-@event.listens_for(models.Product, 'before_delete')
-@event.listens_for(models.InwardLog, 'before_delete')
-@event.listens_for(models.SalesLog, 'before_delete')
-def before_delete_listener(mapper, connection, target):
-    user = current_user_var.get()
-    if not user: return
-
-    session = get_session(target)
-    if not session: return
-
-    log_entry = schemas.AuditLogCreate(
-        user_id=user.id,
-        username=user.email,
-        action="DELETE",
-        entity=target.__class__.__name__,
-        entity_id=target.id,
-        old_value=str({c.name: getattr(target, c.name) for c in target.__table__.columns})
-    )
-    # Same async challenge as above
-    # crud.audit_log.create_audit_log(session, log_entry) 
+    @event.listens_for(models.Product, 'before_delete')
+    @event.listens_for(models.InwardLog, 'before_delete')
+    @event.listens_for(models.SalesLog, 'before_delete')
+    def before_delete_listener(mapper, connection, target):
+        user = current_user_var.get()
+        if not user:
+            return
+        session = object_session(target)
+        if not session:
+            return
+        log_entry = schemas.AuditLogCreate(
+            user_id=user.id,
+            username=user.email,
+            action="DELETE",
+            entity=target.__class__.__name__,
+            entity_id=target.id,
+            old_value=json.dumps(model_to_dict(target))
+        )
+        db_log = models.AuditLog(**log_entry.model_dump())
+        session.add(db_log) 

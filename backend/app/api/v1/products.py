@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from sqlalchemy.exc import IntegrityError
 
 from ...database import get_db
 from ...api.deps import get_current_user, require_manager_or_admin, require_admin
@@ -19,6 +20,11 @@ async def create_new_product_route(
 ):
     try:
         return await create_product(db=db, product=payload)
+    except IntegrityError as e:
+        if "ix_products_sku" in str(e.orig) or "unique constraint" in str(e.orig):
+            raise HTTPException(status_code=400, detail="SKU already exists.")
+        logger.error(f"IntegrityError creating product: {e}")
+        raise HTTPException(status_code=400, detail="Integrity error: " + str(e.orig))
     except Exception as e:
         logger.error(f"Error creating product: {e}")
         raise HTTPException(status_code=500, detail=str(e))
