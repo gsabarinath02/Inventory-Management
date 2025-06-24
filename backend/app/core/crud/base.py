@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
-from models import Product, InwardLog, SalesLog
+from app.models import Product, InwardLog, SalesLog
 from schemas import ProductCreate, ProductUpdate, InwardLogCreate, SalesLogCreate, StockInfo
 from sqlalchemy.exc import IntegrityError
 

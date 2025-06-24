@@ -2,7 +2,7 @@ import { Form, Input, InputNumber, Select, Alert, Button, Space, Tag } from 'ant
 import { CustomTagProps } from 'rc-select/lib/BaseSelect';
 import { ProductFormData, Product } from '../types';
 import { VALIDATION_RULES } from '../constants';
-import { getColor } from '../utils';
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 
@@ -14,26 +14,6 @@ interface ProductFormProps {
   onCancel: () => void;
   isEditing: boolean;
 }
-
-// Custom renderer for color tags
-const colorTagRender = (props: CustomTagProps) => {
-  const { label, value, closable, onClose } = props;
-  const onPreventMouseDown = (event: React.MouseEvent<HTMLSpanElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-  return (
-    <Tag
-      color={getColor(value)}
-      onMouseDown={onPreventMouseDown}
-      closable={closable}
-      onClose={onClose}
-      style={{ marginRight: 3 }}
-    >
-      {label}
-    </Tag>
-  );
-};
 
 // Custom renderer for size tags (using a neutral color)
 const sizeTagRender = (props: CustomTagProps) => {
@@ -129,15 +109,39 @@ const ProductForm: React.FC<ProductFormProps> = ({
       </Form.Item>
 
       <Form.Item
-        name="colors"
-        label="Colors"
+        label="Colors & Colour Codes"
+        required={false}
       >
-        <Select
-          mode="tags"
-          style={{ width: '100%' }}
-          placeholder="Type and press Enter to add colors"
-          tagRender={colorTagRender}
-        />
+        <Form.List name="colors">
+          {(fields, { add, remove }) => (
+            <>
+              {fields.map(({ key, name, ...restField }) => (
+                <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                  <Form.Item
+                    {...restField}
+                    name={[name, 'color']}
+                    rules={[{ required: true, message: 'Missing color' }]}
+                  >
+                    <Input placeholder="Color" />
+                  </Form.Item>
+                  <Form.Item
+                    {...restField}
+                    name={[name, 'colour_code']}
+                    rules={[{ required: true, message: 'Missing colour code' }]}
+                  >
+                    <InputNumber placeholder="Colour Code" min={0} />
+                  </Form.Item>
+                  <MinusCircleOutlined onClick={() => remove(name)} />
+                </Space>
+              ))}
+              <Form.Item>
+                <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
+                  Add Color
+                </Button>
+              </Form.Item>
+            </>
+          )}
+        </Form.List>
       </Form.Item>
 
       <Form.Item>

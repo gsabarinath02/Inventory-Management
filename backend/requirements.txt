@@ -11,3 +11,4 @@ email-validator
 pydantic-settings
 asyncpg 
 apscheduler 
+httpx>=0.23.0 

@@ -10,5 +10,6 @@ class ProductColorStock(Base):
     product_id = Column(Integer, ForeignKey('products.id', ondelete="CASCADE"), nullable=False)
     color = Column(String, nullable=False)
     total_stock = Column(Integer, default=0, nullable=False)
+    colour_code = Column(Integer, nullable=True)
 
     product = relationship("Product", back_populates="product_color_stocks") 

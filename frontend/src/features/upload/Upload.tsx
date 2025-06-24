@@ -75,8 +75,9 @@ const Upload: React.FC = () => {
                                 <InwardLogTable 
                                     productId={selectedProduct.id} 
                                     onDataChange={handleDataChange}
-                                    availableColors={selectedProduct.colors}
+                                    availableColors={selectedProduct.colors.map(c => c.color)}
                                     availableSizes={selectedProduct.sizes}
+                                    colorCodePairs={selectedProduct.colors}
                                     isReadOnly={user?.role === 'viewer'}
                                 />
                             </motion.div>
@@ -94,8 +95,9 @@ const Upload: React.FC = () => {
                                 <SalesLogTable 
                                     productId={selectedProduct.id} 
                                     onDataChange={handleDataChange} 
-                                    availableColors={selectedProduct.colors}
+                                    availableColors={selectedProduct.colors.map(c => c.color)}
                                     availableSizes={selectedProduct.sizes}
+                                    colorCodePairs={selectedProduct.colors}
                                     isReadOnly={user?.role === 'viewer'}
                                 />
                             </motion.div>

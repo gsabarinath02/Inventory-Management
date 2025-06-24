@@ -104,7 +104,8 @@ export const isEmpty = (value: any): boolean => {
 };
 
 // Color utilities
-export const getColor = (colorName: string): string => {
+export const getColor = (color: string | { color: string }): string => {
+  const colorName = typeof color === 'string' ? color : color.color;
   const colorMap: { [key: string]: string } = {
     'red': 'red',
     'blue': 'blue',

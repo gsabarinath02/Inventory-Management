@@ -7,7 +7,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models import InwardLog, SalesLog
+from app.models import InwardLog, SalesLog
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
 async def setup_product(client: AsyncClient):

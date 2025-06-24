@@ -9,6 +9,7 @@ class InwardCategory(str, enum.Enum):
 class InwardLogBase(BaseModel):
     product_id: int
     color: str
+    colour_code: int
     size: str
     quantity: int
     date: date

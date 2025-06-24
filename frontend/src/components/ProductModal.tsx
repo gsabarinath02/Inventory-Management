@@ -34,6 +34,21 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
   const modalTitle = title || (editingProduct ? 'Edit Product' : 'Add Product');
 
+  // Defensive transformation for legacy data
+  let safeInitialValues = editingProduct ? { ...editingProduct } : undefined;
+  if (safeInitialValues && Array.isArray(safeInitialValues.colors)) {
+    safeInitialValues.colors = safeInitialValues.colors.map((c: any) => {
+      if (typeof c === 'string') {
+        return { color: c, colour_code: 0 };
+      }
+      if (typeof c === 'object' && c.color && typeof c.colour_code !== 'undefined') {
+        return c;
+      }
+      // fallback for malformed data
+      return { color: String(c), colour_code: 0 };
+    });
+  }
+
   return (
     <Modal
       title={modalTitle}
@@ -45,7 +60,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     >
       <ProductForm
         form={form}
-        initialValues={editingProduct || undefined}
+        initialValues={safeInitialValues}
         error={error}
         onSubmit={handleSubmit}
         onCancel={handleCancel}

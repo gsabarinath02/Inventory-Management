@@ -17,24 +17,93 @@ interface EditableCellProps {
   options?: string[];
 }
 
-const EditableCell: React.FC<EditableCellProps> = ({
+interface ColorCodePair {
+  color: string;
+  colour_code: number;
+}
+
+interface SalesLogTableProps {
+    productId: number;
+    onDataChange: () => void;
+    availableColors: string[];
+    availableSizes: string[];
+    colorCodePairs: ColorCodePair[];
+    isReadOnly: boolean;
+}
+
+const getColorAndCodeOptions = (colorCodePairs: ColorCodePair[], colorValue?: string, codeValue?: number) => {
+  let colorOptions = colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false }));
+  let codeOptions = colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false }));
+  if (codeValue) {
+    const found = colorCodePairs.find(pair => pair.colour_code === codeValue);
+    colorOptions = colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false }));
+  }
+  if (colorValue) {
+    const found = colorCodePairs.find(pair => pair.color === colorValue);
+    codeOptions = codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false }));
+  }
+  return { colorOptions, codeOptions };
+};
+
+const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair[]; form: any }> = ({
   editing,
   dataIndex,
   title,
   inputType,
   children,
   options = [],
+  colorCodePairs,
+  form,
   ...restProps
 }) => {
+  const colorValue = form.getFieldValue('color');
+  const codeValue = form.getFieldValue('colour_code');
+  const { colorOptions, codeOptions } = getColorAndCodeOptions(colorCodePairs, colorValue, codeValue);
+
+  const handleColorChange = (color: string) => {
+    const found = colorCodePairs.find(pair => pair.color === color);
+    if (found) {
+      form.setFieldsValue({ colour_code: found.colour_code });
+    } else {
+      form.setFieldsValue({ colour_code: undefined });
+    }
+  };
+  const handleCodeChange = (code: number) => {
+    const found = colorCodePairs.find(pair => pair.colour_code === code);
+    if (found) {
+      form.setFieldsValue({ color: found.color });
+    } else {
+      form.setFieldsValue({ color: undefined });
+    }
+  };
+
   const getInputNode = () => {
     if (inputType === 'number') return <InputNumber />;
     if (inputType === 'date') return <DatePicker format="YYYY-MM-DD" />;
     if (inputType === 'select') {
-      return (
-        <Select>
-          {options.map(opt => <Option key={opt} value={opt}>{opt}</Option>)}
-        </Select>
-      );
+      if (dataIndex === 'color') {
+        return (
+          <Select
+            options={colorOptions}
+            onChange={handleColorChange}
+            value={colorValue}
+            style={{ width: 120 }}
+            placeholder="Color"
+          />
+        );
+      }
+      if (dataIndex === 'colour_code') {
+        return (
+          <Select
+            options={codeOptions}
+            onChange={handleCodeChange}
+            value={codeValue}
+            style={{ width: 120 }}
+            placeholder="Colour Code"
+          />
+        );
+      }
+      return <Select options={options.map(opt => ({ label: opt, value: opt }))} />;
     }
     return <Input />;
   };
@@ -56,19 +125,12 @@ const EditableCell: React.FC<EditableCellProps> = ({
   );
 };
 
-interface SalesLogTableProps {
-    productId: number;
-    onDataChange: () => void;
-    availableColors: string[];
-    availableSizes: string[];
-    isReadOnly: boolean;
-}
-
 const SalesLogTable: React.FC<SalesLogTableProps> = ({ 
     productId, 
     onDataChange, 
     availableColors, 
     availableSizes,
+    colorCodePairs,
     isReadOnly
 }) => {
     const { logs, loading, createLog, updateLog, deleteLog } = useSalesLogs(productId);
@@ -118,6 +180,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     let columns = [
         { title: 'Date', dataIndex: 'date', editable: true, inputType: 'date' as const, render: (text: string) => dayjs(text).format('YYYY-MM-DD')},
         { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select' as const, options: availableColors },
+        { title: 'Colour Code', dataIndex: 'colour_code', editable: true, inputType: 'number' as const, render: (code: number) => code !== undefined ? code : '' },
         { title: 'Size', dataIndex: 'size', editable: true, inputType: 'select' as const, options: availableSizes },
         { title: 'Quantity', dataIndex: 'quantity', editable: true, inputType: 'number' as const },
         { title: 'Agency', dataIndex: 'agency_name', editable: true, inputType: 'text' as const },
@@ -159,24 +222,81 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                 title: col.title,
                 editing: isEditing(record),
                 options: col.options,
+                colorCodePairs,
+                form,
             }),
         };
     });
     
-    const renderNewRowForm = () => (
-        <Form form={form} layout="inline" style={{ marginBottom: 16 }} onFinish={() => save('new_row')}>
-            <Form.Item name="date" rules={[{ required: true }]}><DatePicker format="YYYY-MM-DD"/></Form.Item>
-            <Form.Item name="color" rules={[{ required: true }]}><Select placeholder="Color" style={{width: 120}} options={availableColors.map(c => ({label: c, value: c}))} /></Form.Item>
-            <Form.Item name="size" rules={[{ required: true }]}><Select placeholder="Size" style={{width: 120}} options={availableSizes.map(s => ({label: s, value: s}))} /></Form.Item>
-            <Form.Item name="quantity" rules={[{ required: true }]}><InputNumber placeholder="Qty" min={1}/></Form.Item>
-            <Form.Item name="agency_name"><Input placeholder="Agency"/></Form.Item>
-            <Form.Item name="store_name"><Input placeholder="Store"/></Form.Item>
-            <Form.Item>
-                <Button htmlType="submit" type="primary">Save</Button>
-                <Button onClick={cancel} style={{marginLeft: 8}}>Cancel</Button>
-            </Form.Item>
-        </Form>
-    );
+    const renderNewRowForm = () => {
+        // Get current form values
+        const colorValue = form.getFieldValue('color');
+        const codeValue = form.getFieldValue('colour_code');
+
+        // Build options for color and code
+        let colorOptions = colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false }));
+        let codeOptions = colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false }));
+        if (codeValue) {
+          // If a code is selected, only allow the matching color
+          const found = colorCodePairs.find(pair => pair.colour_code === codeValue);
+          colorOptions = colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false }));
+        }
+        if (colorValue) {
+          // If a color is selected, only allow the matching code
+          const found = colorCodePairs.find(pair => pair.color === colorValue);
+          codeOptions = codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false }));
+        }
+
+        // Handlers to sync fields
+        const handleColorChange = (color: string) => {
+            const found = colorCodePairs.find(pair => pair.color === color);
+            if (found) {
+                form.setFieldsValue({ colour_code: found.colour_code });
+            } else {
+                form.setFieldsValue({ colour_code: undefined });
+            }
+        };
+        const handleCodeChange = (code: number) => {
+            const found = colorCodePairs.find(pair => pair.colour_code === code);
+            if (found) {
+                form.setFieldsValue({ color: found.color });
+            } else {
+                form.setFieldsValue({ color: undefined });
+            }
+        };
+
+        return (
+            <Form form={form} layout="inline" style={{ marginBottom: 16 }} onFinish={() => save('new_row')}>
+                <Form.Item name="date" rules={[{ required: true }]}><DatePicker format="YYYY-MM-DD"/></Form.Item>
+                <Form.Item name="color" rules={[{ required: true }]}>
+                    <Select
+                        placeholder="Color"
+                        style={{width: 120}}
+                        options={colorOptions}
+                        onChange={handleColorChange}
+                        value={colorValue}
+                    />
+                </Form.Item>
+                <Form.Item name="colour_code" rules={[{ required: true }]}>
+                    <Select
+                        placeholder="Colour Code"
+                        style={{width: 120}}
+                        options={codeOptions}
+                        onChange={handleCodeChange}
+                        value={codeValue}
+                    />
+                </Form.Item>
+                <Form.Item name="size" rules={[{ required: true }]}><Select placeholder="Size" style={{width: 120}} options={availableSizes.map(s => ({label: s, value: s}))} /></Form.Item>
+                <Form.Item name="quantity" rules={[{ required: true }]}><InputNumber placeholder="Qty" min={1}/></Form.Item>
+                <Form.Item name="agency_name"><Input placeholder="Agency"/></Form.Item>
+                <Form.Item name="store_name"><Input placeholder="Store"/></Form.Item>
+                <Form.Item>
+                    <Button htmlType="submit" type="primary">Save</Button>
+                    <Button onClick={cancel} style={{marginLeft: 8}}>Cancel</Button>
+                </Form.Item>
+            </Form>
+        );
+    };
 
     return (
         <Form form={form} component={false}>

@@ -10,6 +10,8 @@ from .core.logging_context import current_user_var
 from .api.deps import get_current_user
 from .core.services.audit_logger import setup_audit_logging
 from app.utils.scheduler import start_scheduler
+from fastapi.exceptions import RequestValidationError
+import logging
 
 app = FastAPI(title="Inventory Management System")
 
@@ -117,5 +119,14 @@ async def health_check():
 
 # Setup event listeners for audit logging
 setup_audit_logging() 
-# Start the scheduler for auto-deleting old logs
-start_scheduler() 
+
+if __name__ == "__main__":
+    start_scheduler()
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    logging.error(f"422 Validation Error: {exc.errors()} | Body: {exc.body}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": exc.body},
+    ) 

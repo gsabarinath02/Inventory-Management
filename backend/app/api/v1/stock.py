@@ -32,7 +32,7 @@ async def get_stock_matrix(
         inward_logs = await get_inward_logs_by_product(db, product_id=product_id)
         sales_logs = await get_sales_logs_by_product(db, product_id=product_id)
 
-        stock_matrix = {color: {size: 0 for size in product.sizes} for color in product.colors}
+        stock_matrix = {color['color']: {size: 0 for size in product.sizes} for color in product.colors}
 
         for log in inward_logs:
             if log.color in stock_matrix and log.size in stock_matrix[log.color]:

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from database import engine
-from models import Base, Product, InwardLog, SalesLog
+from app.models import Base, Product, InwardLog, SalesLog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 

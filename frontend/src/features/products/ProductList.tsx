@@ -79,12 +79,14 @@ const ProductList: React.FC = () => {
         width: 180, 
         cellRenderer: (params: any) => (
           <Space wrap size={[0, 8]}>
-           {params.value?.map((color: string) => (
-             <Tag key={color} color={getColor(color)}>{color}</Tag>
-           ))}
-         </Space>
-       ),
-       valueFormatter: params => Array.isArray(params.value) ? params.value.join(', ') : params.value,
+            {params.value?.map((color: { color: string, colour_code: number }) => (
+              <Tag key={color.color} color={getColor(color.color)} title={color.colour_code !== undefined ? `Code: ${color.colour_code}` : undefined}>
+                {color.color}
+              </Tag>
+            ))}
+          </Space>
+        ),
+        valueFormatter: params => Array.isArray(params.value) ? params.value.map((c: any) => c.color).join(', ') : params.value,
       },
       { field: 'created_at', headerName: 'Created', width: 150, valueFormatter: (params: any) => formatDate(params.value) },
     ];

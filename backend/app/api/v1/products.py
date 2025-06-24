@@ -18,6 +18,7 @@ async def create_new_product_route(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(require_manager_or_admin)
 ):
+    logger.debug(f"Received payload for product creation: {payload}")
     try:
         return await create_product(db=db, product=payload)
     except IntegrityError as e:

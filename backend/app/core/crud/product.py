@@ -14,14 +14,6 @@ async def create_product(db: AsyncSession, product: ProductCreate) -> Product:
 async def get_products(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[Product]:
     result = await db.execute(select(Product).offset(skip).limit(limit))
     products = result.scalars().all()
-    
-    # Manually process colors and sizes to ensure they are lists of strings
-    for p in products:
-        if p.colors and isinstance(p.colors, list) and p.colors and isinstance(p.colors[0], dict):
-            p.colors = [c.get("name") for c in p.colors if c.get("name")]
-        if p.sizes and isinstance(p.sizes, list) and p.sizes and isinstance(p.sizes[0], dict):
-            p.sizes = [s.get("name") for s in p.sizes if s.get("name")]
-            
     return products
 
 async def get_product(db: AsyncSession, product_id: int) -> Optional[Product]:

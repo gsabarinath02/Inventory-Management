@@ -13,6 +13,7 @@ class InwardLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     color = Column(String, nullable=False)
+    colour_code = Column(Integer, nullable=False)
     size = Column(String, nullable=False)
     quantity = Column(Integer, nullable=False)
     date = Column(Date, nullable=False)

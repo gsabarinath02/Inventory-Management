@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from typing import Dict, List
 
 from database import get_db
-from models import Product, InwardLog, SalesLog
+from app.models import Product, InwardLog, SalesLog
 from crud import get_product
 from schemas import InwardLog as InwardLogSchema, SalesLog as SalesLogSchema
 

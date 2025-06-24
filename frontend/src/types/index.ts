@@ -6,12 +6,18 @@ export interface Product {
     description?: string;
     unit_price: number;
     sizes: string[];
-    colors: string[];
+    colors: { color: string; colour_code: number }[];
     created_at: string;
     updated_at?: string;
 }
 
 // Stock related types
+export interface ProductColorStock {
+  color: string;
+  total_stock: number;
+  colour_code?: number;
+}
+
 export interface StockMatrix {
   [color: string]: {
     [key: string]: number;
@@ -45,6 +51,7 @@ export interface InwardLog {
     size?: string;
     color?: string;
     color_name?: string;
+    colour_code?: number;
     category?: string;
     supplier?: string;
     notes?: string;
@@ -61,6 +68,7 @@ export interface SalesLog {
     size?: string;
     color?: string;
     color_name?: string;
+    colour_code?: number;
     category?: string;
     customer?: string;
     notes?: string;
@@ -74,7 +82,7 @@ export interface ProductFormData {
     description?: string;
     unit_price: number;
     sizes: string[];
-    colors: string[];
+    colors: { color: string; colour_code: number }[];
 }
 
 // API Response types

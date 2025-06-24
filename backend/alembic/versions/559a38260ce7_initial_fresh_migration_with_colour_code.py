@@ -1,8 +1,8 @@
-"""initial
+"""initial fresh migration with colour_code
 
-Revision ID: 82c4392d6ebb
+Revision ID: 559a38260ce7
 Revises: 
-Create Date: 2025-06-22 22:16:26.808837
+Create Date: 2025-06-24 16:50:29.895092
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '82c4392d6ebb'
+revision: str = '559a38260ce7'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -35,6 +35,37 @@ def upgrade() -> None:
     op.create_index(op.f('ix_products_id'), 'products', ['id'], unique=False)
     op.create_index(op.f('ix_products_name'), 'products', ['name'], unique=False)
     op.create_index(op.f('ix_products_sku'), 'products', ['sku'], unique=True)
+    op.create_table('users',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(), nullable=True),
+    sa.Column('email', sa.String(), nullable=False),
+    sa.Column('password_hash', sa.String(), nullable=False),
+    sa.Column('role', sa.Enum('admin', 'manager', 'viewer', name='user_role_enum'), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
+    op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
+    op.create_index(op.f('ix_users_name'), 'users', ['name'], unique=False)
+    op.create_table('audit_logs',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('username', sa.String(), nullable=True),
+    sa.Column('action', sa.String(), nullable=True),
+    sa.Column('entity', sa.String(), nullable=True),
+    sa.Column('entity_id', sa.Integer(), nullable=True),
+    sa.Column('field_changed', sa.String(), nullable=True),
+    sa.Column('old_value', sa.String(), nullable=True),
+    sa.Column('new_value', sa.String(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_audit_logs_action'), 'audit_logs', ['action'], unique=False)
+    op.create_index(op.f('ix_audit_logs_entity'), 'audit_logs', ['entity'], unique=False)
+    op.create_index(op.f('ix_audit_logs_entity_id'), 'audit_logs', ['entity_id'], unique=False)
+    op.create_index(op.f('ix_audit_logs_id'), 'audit_logs', ['id'], unique=False)
+    op.create_index(op.f('ix_audit_logs_username'), 'audit_logs', ['username'], unique=False)
     op.create_table('inward_logs',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('product_id', sa.Integer(), nullable=False),
@@ -53,6 +84,7 @@ def upgrade() -> None:
     sa.Column('product_id', sa.Integer(), nullable=False),
     sa.Column('color', sa.String(), nullable=False),
     sa.Column('total_stock', sa.Integer(), nullable=False),
+    sa.Column('colour_code', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['product_id'], ['products.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -81,6 +113,16 @@ def downgrade() -> None:
     op.drop_table('product_color_stocks')
     op.drop_index(op.f('ix_inward_logs_id'), table_name='inward_logs')
     op.drop_table('inward_logs')
+    op.drop_index(op.f('ix_audit_logs_username'), table_name='audit_logs')
+    op.drop_index(op.f('ix_audit_logs_id'), table_name='audit_logs')
+    op.drop_index(op.f('ix_audit_logs_entity_id'), table_name='audit_logs')
+    op.drop_index(op.f('ix_audit_logs_entity'), table_name='audit_logs')
+    op.drop_index(op.f('ix_audit_logs_action'), table_name='audit_logs')
+    op.drop_table('audit_logs')
+    op.drop_index(op.f('ix_users_name'), table_name='users')
+    op.drop_index(op.f('ix_users_id'), table_name='users')
+    op.drop_index(op.f('ix_users_email'), table_name='users')
+    op.drop_table('users')
     op.drop_index(op.f('ix_products_sku'), table_name='products')
     op.drop_index(op.f('ix_products_name'), table_name='products')
     op.drop_index(op.f('ix_products_id'), table_name='products')

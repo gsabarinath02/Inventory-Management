@@ -4,6 +4,7 @@ from datetime import date
 class SalesLogBase(BaseModel):
     product_id: int
     color: str
+    colour_code: int | None = None
     size: str
     quantity: int
     date: date

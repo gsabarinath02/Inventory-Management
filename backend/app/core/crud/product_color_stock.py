@@ -11,15 +11,17 @@ class CRUDProductColorStock:
         statement = select(ProductColorStock).where(ProductColorStock.product_id == product_id)
         return (await db.execute(statement)).scalars().all()
 
-    async def get_by_product_and_color(self, db: AsyncSession, *, product_id: int, color: str) -> ProductColorStock | None:
+    async def get_by_product_and_color(self, db: AsyncSession, *, product_id: int, color: str, colour_code: int | None = None) -> ProductColorStock | None:
         statement = select(ProductColorStock).where(ProductColorStock.product_id == product_id, ProductColorStock.color == color)
+        if colour_code is not None:
+            statement = statement.where(ProductColorStock.colour_code == colour_code)
         return (await db.execute(statement)).scalar_one_or_none()
 
-    async def create_or_update(self, db: AsyncSession, *, product_id: int, color: str, quantity_change: int) -> ProductColorStock:
+    async def create_or_update(self, db: AsyncSession, *, product_id: int, color: str, quantity_change: int, colour_code: int | None = None) -> ProductColorStock:
         # Lock to prevent race conditions
         async with asyncio.Lock():
             # Check if a record already exists
-            existing_stock = await self.get_by_product_and_color(db, product_id=product_id, color=color)
+            existing_stock = await self.get_by_product_and_color(db, product_id=product_id, color=color, colour_code=colour_code)
 
             if existing_stock:
                 # Update the stock
@@ -33,20 +35,22 @@ class CRUDProductColorStock:
                 new_stock = ProductColorStock(
                     product_id=product_id,
                     color=color,
-                    total_stock=quantity_change
+                    total_stock=quantity_change,
+                    colour_code=colour_code
                 )
                 db.add(new_stock)
                 await db.commit()
                 await db.refresh(new_stock)
                 return new_stock
 
-async def get_stock_by_product_and_color(db: AsyncSession, product_id: int, color: str):
-    result = await db.execute(
-        select(ProductColorStock).filter_by(product_id=product_id, color=color)
-    )
+async def get_stock_by_product_and_color(db: AsyncSession, product_id: int, color: str, colour_code: int | None = None):
+    statement = select(ProductColorStock).filter_by(product_id=product_id, color=color)
+    if colour_code is not None:
+        statement = statement.filter(ProductColorStock.colour_code == colour_code)
+    result = await db.execute(statement)
     return result.scalar_one_or_none()
 
-async def update_stock_from_log(db: AsyncSession, log: InwardLog | SalesLog, operation: str):
+async def update_stock_from_log(db: AsyncSession, log: InwardLog | SalesLog, operation: str, colour_code: int | None = None):
     """
     Updates the total stock for a given product and color based on an inward or sales log.
     
@@ -67,7 +71,7 @@ async def update_stock_from_log(db: AsyncSession, log: InwardLog | SalesLog, ope
     if operation == 'DELETE':
         quantity_change = -quantity_change
 
-    stock_entry = await get_stock_by_product_and_color(db, log.product_id, log.color)
+    stock_entry = await get_stock_by_product_and_color(db, log.product_id, log.color, colour_code)
     
     if stock_entry:
         stock_entry.total_stock += quantity_change
@@ -75,7 +79,8 @@ async def update_stock_from_log(db: AsyncSession, log: InwardLog | SalesLog, ope
         stock_entry = ProductColorStock(
             product_id=log.product_id,
             color=log.color,
-            total_stock=quantity_change
+            total_stock=quantity_change,
+            colour_code=colour_code
         )
         db.add(stock_entry)
         

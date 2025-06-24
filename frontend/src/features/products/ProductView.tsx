@@ -42,13 +42,15 @@ const ProductView: React.FC = () => {
         const newColumnDefs: ColDef[] = [
           { headerName: 'Color', field: 'color', sortable: true, filter: true, pinned: 'left',
             cellRenderer: (params: any) => {
+              const colourCode = params.data?.colour_code;
               return (
-                <Tag color={getColor(params.value)} key={params.value}>
+                <Tag color={getColor(params.value)} key={params.value} title={colourCode !== undefined ? `Code: ${colourCode}` : undefined}>
                   {params.value}
                 </Tag>
               )
             }
-          }
+          },
+          { headerName: 'Colour Code', field: 'colour_code', sortable: true, filter: true, width: 120 },
         ];
 
         product.sizes.forEach(size => {
@@ -73,8 +75,8 @@ const ProductView: React.FC = () => {
         setColumnDefs(newColumnDefs);
 
         // Build row data
-        const newRowData = product.colors.map(color => {
-          const row: any = { color };
+        const newRowData = product.colors.map(({ color, colour_code }) => {
+          const row: any = { color, colour_code };
           const colorData = stockMatrix[color] || {};
           product.sizes.forEach(size => {
             row[size] = colorData[size] || 0;
