@@ -37,7 +37,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   // Defensive transformation for legacy data
   let safeInitialValues = editingProduct ? { ...editingProduct } : undefined;
   if (safeInitialValues && Array.isArray(safeInitialValues.colors)) {
-    safeInitialValues.colors = safeInitialValues.colors.map((c: any) => {
+    safeInitialValues.colors = Array.isArray(safeInitialValues.colors) ? safeInitialValues.colors.map((c: any) => {
       if (typeof c === 'string') {
         return { color: c, colour_code: 0 };
       }
@@ -46,7 +46,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       }
       // fallback for malformed data
       return { color: String(c), colour_code: 0 };
-    });
+    }) : [];
   }
 
   return (

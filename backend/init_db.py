@@ -34,7 +34,7 @@ async def init_db():
                         description="Cotton T-Shirt",
                         unit_price=25.99,
                         sizes=["S", "M", "L", "XL"],
-                        colors=["Red", "Blue", "Black"]
+                        colors=[{"color": "Red", "colour_code": 101}, {"color": "Blue", "colour_code": 102}, {"color": "Black", "colour_code": 103}]
                     ),
                     Product(
                         name="Jeans",
@@ -42,7 +42,7 @@ async def init_db():
                         description="Denim Jeans",
                         unit_price=49.99,
                         sizes=["30", "32", "34", "36"],
-                        colors=["Blue", "Black", "Grey"]
+                        colors=[{"color": "Blue", "colour_code": 201}, {"color": "Black", "colour_code": 202}, {"color": "Grey", "colour_code": 203}]
                     ),
                     Product(
                         name="Sneakers",
@@ -50,7 +50,7 @@ async def init_db():
                         description="Running Sneakers",
                         unit_price=79.99,
                         sizes=["7", "8", "9", "10", "11"],
-                        colors=["White", "Black", "Red"]
+                        colors=[{"color": "White", "colour_code": 301}, {"color": "Black", "colour_code": 302}, {"color": "Red", "colour_code": 303}]
                     )
                 ]
                 

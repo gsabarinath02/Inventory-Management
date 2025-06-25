@@ -32,7 +32,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
     if (inputType === 'select') {
       return (
         <Select>
-          {options.map(opt => <Option key={opt} value={opt}>{opt}</Option>)}
+          {Array.isArray(options) ? options.map(opt => <Option key={opt} value={opt}>{opt}</Option>) : null}
         </Select>
       );
     }
@@ -154,7 +154,7 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         columns = columns.filter(col => col.dataIndex !== 'operation');
     }
 
-    const mergedColumns = columns.map(col => {
+    const mergedColumns = Array.isArray(columns) ? columns.map(col => {
         if (!col.editable) {
             return col;
         }
@@ -169,30 +169,28 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                 options: col.options,
             }),
         };
-    });
+    }) : [];
     
     const renderNewRowForm = () => {
         // Get current form values
-        const colorValue = form.getFieldValue('color');
-        const codeValue = form.getFieldValue('colour_code');
+        const colorValue = form ? form.getFieldValue('color') : undefined;
+        const codeValue = form ? form.getFieldValue('colour_code') : undefined;
 
         // Build options for color and code
-        let colorOptions = colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false }));
-        let codeOptions = colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false }));
+        let colorOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false })) : [];
+        let codeOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false })) : [];
         if (codeValue) {
-          // If a code is selected, only allow the matching color
-          const found = colorCodePairs.find(pair => pair.colour_code === codeValue);
-          colorOptions = colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false }));
+          const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.colour_code === codeValue) : undefined;
+          colorOptions = Array.isArray(colorOptions) ? colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false })) : [];
         }
         if (colorValue) {
-          // If a color is selected, only allow the matching code
-          const found = colorCodePairs.find(pair => pair.color === colorValue);
-          codeOptions = codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false }));
+          const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.color === colorValue) : undefined;
+          codeOptions = Array.isArray(codeOptions) ? codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false })) : [];
         }
 
         // Handlers to sync fields
         const handleColorChange = (color: string) => {
-            const found = colorCodePairs.find(pair => pair.color === color);
+            const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.color === color) : undefined;
             if (found) {
                 form.setFieldsValue({ colour_code: found.colour_code });
             } else {
@@ -200,7 +198,7 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
             }
         };
         const handleCodeChange = (code: number) => {
-            const found = colorCodePairs.find(pair => pair.colour_code === code);
+            const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.colour_code === code) : undefined;
             if (found) {
                 form.setFieldsValue({ color: found.color });
             } else {
@@ -229,7 +227,7 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                         value={codeValue}
                     />
                 </Form.Item>
-                <Form.Item name="size" rules={[{ required: true }]}><Select placeholder="Size" style={{width: 120}} options={availableSizes.map(s => ({label: s, value: s}))} /></Form.Item>
+                <Form.Item name="size" label="Size" style={{marginBottom:0}}><Select style={{width: 120}} options={Array.isArray(availableSizes) ? availableSizes.map(s => ({label: s, value: s})) : []} /></Form.Item>
                 <Form.Item name="quantity" rules={[{ required: true }]}><InputNumber placeholder="Qty" min={1}/></Form.Item>
                 <Form.Item name="category" initialValue="Supply" rules={[{ required: true }]}> 
                     <Select style={{width: 120}}>

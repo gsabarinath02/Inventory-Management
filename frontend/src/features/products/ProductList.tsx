@@ -66,9 +66,9 @@ const ProductList: React.FC = () => {
         width: 180,
         cellRenderer: (params: any) => (
           <Space wrap size={[0, 8]}>
-            {params.value?.map((size: string) => (
+            {Array.isArray(params.value) ? params.value.map((size: string) => (
               <Tag key={size}>{size}</Tag>
-            ))}
+            )) : null}
           </Space>
         ),
         valueFormatter: params => Array.isArray(params.value) ? params.value.join(', ') : params.value,
@@ -79,11 +79,11 @@ const ProductList: React.FC = () => {
         width: 180, 
         cellRenderer: (params: any) => (
           <Space wrap size={[0, 8]}>
-            {params.value?.map((color: { color: string, colour_code: number }) => (
+            {Array.isArray(params.value) ? params.value.map((color: { color: string, colour_code: number }) => (
               <Tag key={color.color} color={getColor(color.color)} title={color.colour_code !== undefined ? `Code: ${color.colour_code}` : undefined}>
                 {color.color}
               </Tag>
-            ))}
+            )) : null}
           </Space>
         ),
         valueFormatter: params => Array.isArray(params.value) ? params.value.map((c: any) => c.color).join(', ') : params.value,

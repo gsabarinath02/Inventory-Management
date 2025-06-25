@@ -75,15 +75,19 @@ const ProductView: React.FC = () => {
         setColumnDefs(newColumnDefs);
 
         // Build row data
-        const newRowData = product.colors.map(({ color, colour_code }) => {
-          const row: any = { color, colour_code };
-          const colorData = stockMatrix[color] || {};
-          product.sizes.forEach(size => {
-            row[size] = colorData[size] || 0;
-          });
-          row.total = colorData.total || 0;
-          return row;
-        });
+        const newRowData = Array.isArray(product.colors)
+          ? product.colors.map(({ color, colour_code }) => {
+              const row: any = { color, colour_code };
+              const colorData = stockMatrix[color] || {};
+              if (Array.isArray(product.sizes)) {
+                product.sizes.forEach(size => {
+                  row[size] = colorData[size] || 0;
+                });
+              }
+              row.total = colorData.total || 0;
+              return row;
+            })
+          : [];
         setRowData(newRowData);
       }
     }

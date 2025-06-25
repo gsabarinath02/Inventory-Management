@@ -4,8 +4,6 @@ import dayjs from 'dayjs';
 import { SalesLog } from '../../types';
 import { useSalesLogs } from '../../hooks/useSalesLogs';
 
-const { Option } = Select;
-
 interface EditableCellProps {
   editing: boolean;
   dataIndex: string;
@@ -32,15 +30,15 @@ interface SalesLogTableProps {
 }
 
 const getColorAndCodeOptions = (colorCodePairs: ColorCodePair[], colorValue?: string, codeValue?: number) => {
-  let colorOptions = colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false }));
-  let codeOptions = colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false }));
+  let colorOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false })) : [];
+  let codeOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false })) : [];
   if (codeValue) {
-    const found = colorCodePairs.find(pair => pair.colour_code === codeValue);
-    colorOptions = colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false }));
+    const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.colour_code === codeValue) : undefined;
+    colorOptions = Array.isArray(colorOptions) ? colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false })) : [];
   }
   if (colorValue) {
-    const found = colorCodePairs.find(pair => pair.color === colorValue);
-    codeOptions = codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false }));
+    const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.color === colorValue) : undefined;
+    codeOptions = Array.isArray(codeOptions) ? codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false })) : [];
   }
   return { colorOptions, codeOptions };
 };
@@ -56,8 +54,8 @@ const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair
   form,
   ...restProps
 }) => {
-  const colorValue = form.getFieldValue('color');
-  const codeValue = form.getFieldValue('colour_code');
+  const colorValue = form ? form.getFieldValue('color') : undefined;
+  const codeValue = form ? form.getFieldValue('colour_code') : undefined;
   const { colorOptions, codeOptions } = getColorAndCodeOptions(colorCodePairs, colorValue, codeValue);
 
   const handleColorChange = (color: string) => {
@@ -103,7 +101,7 @@ const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair
           />
         );
       }
-      return <Select options={options.map(opt => ({ label: opt, value: opt }))} />;
+      return <Select options={Array.isArray(options) ? options.map(opt => ({ label: opt, value: opt })) : []} />;
     }
     return <Input />;
   };
@@ -209,7 +207,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         columns = columns.filter(col => col.dataIndex !== 'operation');
     }
 
-    const mergedColumns = columns.map(col => {
+    const mergedColumns = Array.isArray(columns) ? columns.map(col => {
         if (!col.editable) {
             return col;
         }
@@ -226,25 +224,25 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                 form,
             }),
         };
-    });
+    }) : [];
     
     const renderNewRowForm = () => {
         // Get current form values
-        const colorValue = form.getFieldValue('color');
-        const codeValue = form.getFieldValue('colour_code');
+        const colorValue = form ? form.getFieldValue('color') : undefined;
+        const codeValue = form ? form.getFieldValue('colour_code') : undefined;
 
         // Build options for color and code
-        let colorOptions = colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false }));
-        let codeOptions = colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false }));
+        let colorOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false })) : [];
+        let codeOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false })) : [];
         if (codeValue) {
           // If a code is selected, only allow the matching color
-          const found = colorCodePairs.find(pair => pair.colour_code === codeValue);
-          colorOptions = colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false }));
+          const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.colour_code === codeValue) : undefined;
+          colorOptions = Array.isArray(colorOptions) ? colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false })) : [];
         }
         if (colorValue) {
           // If a color is selected, only allow the matching code
-          const found = colorCodePairs.find(pair => pair.color === colorValue);
-          codeOptions = codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false }));
+          const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.color === colorValue) : undefined;
+          codeOptions = Array.isArray(codeOptions) ? codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false })) : [];
         }
 
         // Handlers to sync fields
@@ -286,7 +284,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         value={codeValue}
                     />
                 </Form.Item>
-                <Form.Item name="size" rules={[{ required: true }]}><Select placeholder="Size" style={{width: 120}} options={availableSizes.map(s => ({label: s, value: s}))} /></Form.Item>
+                <Form.Item name="size" label="Size" style={{marginBottom:0}}><Select style={{width: 120}} options={Array.isArray(availableSizes) ? availableSizes.map(s => ({label: s, value: s})) : []} /></Form.Item>
                 <Form.Item name="quantity" rules={[{ required: true }]}><InputNumber placeholder="Qty" min={1}/></Form.Item>
                 <Form.Item name="agency_name"><Input placeholder="Agency"/></Form.Item>
                 <Form.Item name="store_name"><Input placeholder="Store"/></Form.Item>
@@ -307,7 +305,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
             <Table
                 components={{ body: { cell: EditableCell } }}
                 bordered
-                dataSource={logs}
+                dataSource={Array.isArray(logs) ? logs : []}
                 columns={mergedColumns}
                 rowClassName="editable-row"
                 pagination={{ onChange: cancel }}

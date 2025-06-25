@@ -283,7 +283,7 @@ const ActivityLogsPage: React.FC = () => {
                   optionFilterProp="label"
                   filterOption={(input, option) => (option?.label as string).toLowerCase().includes(input.toLowerCase())}
                 >
-                  {users.map((u: User) => <Option key={u.id} value={u.id} label={u.email}>{u.email}</Option>)}
+                  {Array.isArray(users) ? users.map((u: User) => <Option key={u.id} value={u.id} label={u.email}>{u.email}</Option>) : null}
                 </Select>
               </Form.Item>
             </Col>
@@ -293,7 +293,7 @@ const ActivityLogsPage: React.FC = () => {
                   optionFilterProp="label"
                   filterOption={(input, option) => (option?.label as string).toLowerCase().includes(input.toLowerCase())}
                 >
-                  {entityList.map(e => <Option key={e.value} value={e.value} label={e.label}>{e.label}</Option>)}
+                  {Array.isArray(entityList) ? entityList.map(e => <Option key={e.value} value={e.value} label={e.label}>{e.label}</Option>) : null}
                 </Select>
               </Form.Item>
             </Col>

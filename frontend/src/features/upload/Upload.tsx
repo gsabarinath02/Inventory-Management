@@ -50,11 +50,11 @@ const Upload: React.FC = () => {
                         (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
                     }
                 >
-                    {products.map(p => <Option key={p.id} value={p.id}>{`${p.name} (${p.sku})`}</Option>)}
+                    {Array.isArray(products) ? products.map(p => <Option key={p.id} value={p.id}>{`${p.name} (${p.sku})`}</Option>) : null}
                 </Select>
             </div>
 
-            {selectedProduct && (
+            {selectedProduct && Array.isArray(selectedProduct.colors) && Array.isArray(selectedProduct.sizes) && (
                 <>
                     <Divider />
                     <Radio.Group onChange={handleLogTypeChange} value={selectedLogType} style={{ marginBottom: 16 }}>
@@ -75,9 +75,9 @@ const Upload: React.FC = () => {
                                 <InwardLogTable 
                                     productId={selectedProduct.id} 
                                     onDataChange={handleDataChange}
-                                    availableColors={selectedProduct.colors.map(c => c.color)}
-                                    availableSizes={selectedProduct.sizes}
-                                    colorCodePairs={selectedProduct.colors}
+                                    availableColors={Array.isArray(selectedProduct.colors) ? selectedProduct.colors.map(c => c.color) : []}
+                                    availableSizes={Array.isArray(selectedProduct.sizes) ? selectedProduct.sizes : []}
+                                    colorCodePairs={Array.isArray(selectedProduct.colors) ? selectedProduct.colors : []}
                                     isReadOnly={user?.role === 'viewer'}
                                 />
                             </motion.div>
@@ -95,9 +95,9 @@ const Upload: React.FC = () => {
                                 <SalesLogTable 
                                     productId={selectedProduct.id} 
                                     onDataChange={handleDataChange} 
-                                    availableColors={selectedProduct.colors.map(c => c.color)}
-                                    availableSizes={selectedProduct.sizes}
-                                    colorCodePairs={selectedProduct.colors}
+                                    availableColors={Array.isArray(selectedProduct.colors) ? selectedProduct.colors.map(c => c.color) : []}
+                                    availableSizes={Array.isArray(selectedProduct.sizes) ? selectedProduct.sizes : []}
+                                    colorCodePairs={Array.isArray(selectedProduct.colors) ? selectedProduct.colors : []}
                                     isReadOnly={user?.role === 'viewer'}
                                 />
                             </motion.div>

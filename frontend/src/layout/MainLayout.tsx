@@ -45,11 +45,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   const getMenuItems = () => {
     const baseItems: { key: string; icon: JSX.Element | null; label: string }[] =
-      NAVIGATION.MENU_ITEMS.map((item) => ({
+      Array.isArray(NAVIGATION.MENU_ITEMS) ? NAVIGATION.MENU_ITEMS.map((item) => ({
         key: item.key,
         icon: getIcon(item.icon),
         label: item.label,
-      }));
+      })) : [];
 
     if (user?.role === 'admin') {
       baseItems.push({

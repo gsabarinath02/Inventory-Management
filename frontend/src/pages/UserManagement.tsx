@@ -69,7 +69,7 @@ const UserManagement: React.FC = () => {
     
     try {
       const updatedUser = await authService.updateUser(editingUser.id, values);
-      setUsers(users.map(user => user.id === editingUser.id ? updatedUser : user));
+      setUsers(Array.isArray(users) ? users.map(user => user.id === editingUser.id ? updatedUser : user) : []);
       message.success('User updated successfully');
       setModalVisible(false);
       setEditingUser(null);

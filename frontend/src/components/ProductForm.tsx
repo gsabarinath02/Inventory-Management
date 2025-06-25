@@ -115,7 +115,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
         <Form.List name="colors">
           {(fields, { add, remove }) => (
             <>
-              {fields.map(({ key, name, ...restField }) => (
+              {Array.isArray(fields) ? fields.map(({ key, name, ...restField }) => (
                 <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
                   <Form.Item
                     {...restField}
@@ -133,7 +133,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   </Form.Item>
                   <MinusCircleOutlined onClick={() => remove(name)} />
                 </Space>
-              ))}
+              )) : null}
               <Form.Item>
                 <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
                   Add Color
