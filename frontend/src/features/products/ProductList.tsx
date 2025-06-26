@@ -51,7 +51,10 @@ const ProductList: React.FC = () => {
   };
 
   const handleDelete = async (id: number | string) => {
-    await deleteProduct(id);
+    console.debug('Raw ID received in handleDelete:', id, typeof id);
+    const numericId = Number(String(id).replace(/[^0-9]/g, ''));
+    console.debug('Sanitized numericId:', numericId);
+    await deleteProduct(numericId);
   };
 
   const columnDefs: ColDef[] = useMemo(() => {
@@ -59,7 +62,7 @@ const ProductList: React.FC = () => {
       { field: 'id', headerName: 'ID', width: 80 },
       { field: 'name', headerName: 'Name', flex: 1 },
       { field: 'sku', headerName: 'SKU', width: 150 },
-      { field: 'unit_price', headerName: 'Unit Price', width: 120, valueFormatter: params => `$${params.value}` },
+      { field: 'unit_price', headerName: 'Unit Price', width: 120, valueFormatter: params => `₹${params.value}` },
       { 
         field: 'sizes', 
         headerName: 'Sizes', 

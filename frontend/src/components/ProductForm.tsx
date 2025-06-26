@@ -85,14 +85,14 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
       <Form.Item
         name="unit_price"
-        label="Unit Price"
+        label="Unit Price (₹)"
         rules={[VALIDATION_RULES.REQUIRED, VALIDATION_RULES.PRICE]}
       >
         <InputNumber
           min={0}
           step={0.01}
           style={{ width: '100%' }}
-          placeholder="Enter unit price"
+          placeholder="Enter unit price in ₹"
         />
       </Form.Item>
 

@@ -9,7 +9,7 @@ engine = create_async_engine(settings.DATABASE_URL, echo=settings.DEBUG)
 AsyncSessionLocal = sessionmaker(
     bind=engine,
     class_=AsyncSession,
-    expire_on_commit=False,
+    expire_on_commit=False,  # CRITICAL: Prevents attribute expiration after commit for async tests
     autocommit=False,
     autoflush=False,
 )

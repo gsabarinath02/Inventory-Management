@@ -28,7 +28,8 @@ export const showSuccess = (messageText: string): void => {
 
 // Data transformation utilities
 export const formatCurrency = (amount: number): string => {
-  return `$${amount.toFixed(2)}`;
+  if (amount === null || amount === undefined) return '₹0.00';
+  return `₹${amount.toFixed(2)}`;
 };
 
 export const formatArrayToString = (array: string[] | undefined): string => {

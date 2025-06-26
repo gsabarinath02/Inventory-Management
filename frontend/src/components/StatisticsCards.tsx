@@ -27,7 +27,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ products, loading = f
           <Statistic 
             title="Total Value" 
             value={totalValue} 
-            prefix="$" 
+            prefix="₹" 
             loading={loading}
           />
         </Card>
@@ -37,7 +37,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ products, loading = f
           <Statistic 
             title="Average Price" 
             value={products.length > 0 ? totalValue / products.length : 0} 
-            prefix="$" 
+            prefix="₹" 
             precision={2}
             loading={loading}
           />

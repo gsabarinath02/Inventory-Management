@@ -6,7 +6,7 @@ export const API_CONFIG = {
 
 // API Endpoints
 export const API_ENDPOINTS = {
-  PRODUCTS: '/products/',
+  PRODUCTS: '/products',
   STOCK: '/stock',
   INWARD: '/inward',
   SALES: '/sales',
@@ -76,6 +76,6 @@ export const MESSAGES = {
 // Validation Rules
 export const VALIDATION_RULES = {
   REQUIRED: { required: true, message: 'This field is required' },
-  PRICE: { type: 'number', min: 0, message: 'Price must be a positive number' },
+  PRICE: { type: 'number', min: 0, message: 'Price must be a positive number in ₹' },
   SKU: { pattern: /^[A-Za-z0-9-]+$/, message: 'SKU can only contain letters, numbers, and hyphens' },
 } as const; 

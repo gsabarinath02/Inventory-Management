@@ -49,13 +49,14 @@ export const useProducts = () => {
   }, [fetchProducts]);
 
   const deleteProduct = useCallback(async (id: number | string) => {
-    const numericId = typeof id === 'string' ? parseInt(id.split(':')[0], 10) : id;
-    
+    console.debug('deleteProduct received id:', id, typeof id);
+    // Remove all non-digit characters and parse as number
+    const numericId = Number(String(id).replace(/[^0-9]/g, ''));
+    console.debug('deleteProduct sanitized numericId:', numericId);
     if (isNaN(numericId)) {
       showError(null, MESSAGES.ERROR.INVALID_ID);
       return false;
     }
-
     try {
       await productAPI.delete(numericId);
       showSuccess(MESSAGES.SUCCESS.PRODUCT_DELETED);

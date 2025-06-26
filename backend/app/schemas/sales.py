@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import date
 
 class SalesLogBase(BaseModel):
@@ -20,8 +20,7 @@ class SalesLogUpdate(SalesLogBase):
 class SalesLogInDB(SalesLogBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SalesLog(SalesLogInDB):
     pass

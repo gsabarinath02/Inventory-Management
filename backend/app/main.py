@@ -12,6 +12,7 @@ from .core.services.audit_logger import setup_audit_logging
 from app.utils.scheduler import start_scheduler
 from fastapi.exceptions import RequestValidationError
 import logging
+from fastapi import HTTPException
 
 app = FastAPI(title="Inventory Management System")
 
@@ -123,10 +124,40 @@ setup_audit_logging()
 if __name__ == "__main__":
     start_scheduler()
 
+def decode_bytes(obj):
+    if isinstance(obj, bytes):
+        return obj.decode(errors="replace")
+    elif isinstance(obj, dict):
+        return {k: decode_bytes(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [decode_bytes(i) for i in obj]
+    else:
+        return obj
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
     logging.error(f"422 Validation Error: {exc.errors()} | Body: {exc.body}")
+    # Recursively decode bytes in the error content
+    body = decode_bytes(exc.body)
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors(), "body": exc.body},
-    ) 
+        content={"detail": exc.errors(), "body": body},
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    tb = traceback.format_exc()
+    # Recursively decode bytes in the error content
+    def decode_bytes(obj):
+        if isinstance(obj, bytes):
+            return obj.decode(errors="replace")
+        elif isinstance(obj, dict):
+            return {k: decode_bytes(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [decode_bytes(i) for i in obj]
+        else:
+            return obj
+    content = {"error": str(exc), "traceback": tb}
+    content = decode_bytes(content)
+    return JSONResponse(status_code=500, content=content) 

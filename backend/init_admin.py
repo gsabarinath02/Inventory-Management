@@ -13,32 +13,33 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.'))
 
 from app.core.crud.user import get_user_by_email, create_user
 from app.schemas.user import UserCreate
-from app.database import AsyncSessionLocal
+from app.database import AsyncSessionLocal, Base, engine
 from app.config import settings
+from app.core.security import get_password_hash
+from app.models import User
 
-async def main():
-    """Initializes the admin user in the database."""
-    print("Attempting to initialize admin user...")
-    db = AsyncSessionLocal()
-    try:
-        user = await get_user_by_email(db, email=settings.ADMIN_EMAIL)
-        if not user:
-            print(f"Admin user '{settings.ADMIN_EMAIL}' not found, creating one...")
-            admin_user_in = UserCreate(
-                name="Admin User",
-                email=settings.ADMIN_EMAIL,
-                password=settings.ADMIN_PASSWORD,
-                role="admin"
-            )
-            await create_user(db=db, user=admin_user_in)
-            print(f"Admin user '{settings.ADMIN_EMAIL}' created successfully.")
-        else:
-            print(f"Admin user '{settings.ADMIN_EMAIL}' already exists.")
-    except Exception as e:
-        print(f"An error occurred during admin initialization: {e}")
-    finally:
-        await db.close()
-        print("Finished admin user initialization.")
+async def insert_admin():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with AsyncSessionLocal() as session:
+        # Check if user already exists
+        result = await session.execute(
+            User.__table__.select().where(User.email == 'admin@fashionstore.com')
+        )
+        existing = result.first()
+        if existing:
+            print("Admin user already exists.")
+            return
+        user = User(
+            email='admin@fashionstore.com',
+            name='Admin User',
+            password_hash=get_password_hash('password'),
+            role='admin'
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        print(f"Inserted admin user with id: {user.id}")
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(insert_admin()) 

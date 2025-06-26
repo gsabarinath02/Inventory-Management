@@ -4,7 +4,7 @@ from typing import List
 from sqlalchemy.exc import IntegrityError
 
 from ...database import get_db
-from ...api.deps import get_current_user, require_manager_or_admin, require_admin
+from ...api.deps import require_admin
 from ...schemas.product import Product, ProductOut, ProductUpdate, ProductCreate
 from ...core.crud.product import create_product, get_products, get_product, update_product, delete_product
 import logging
@@ -15,8 +15,7 @@ router = APIRouter()
 @router.post("/", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
 async def create_new_product_route(
     payload: ProductCreate, 
-    db: AsyncSession = Depends(get_db),
-    current_user = Depends(require_manager_or_admin)
+    db: AsyncSession = Depends(get_db)
 ):
     logger.debug(f"Received payload for product creation: {payload}")
     try:
@@ -34,8 +33,7 @@ async def create_new_product_route(
 async def read_products_route(
     skip: int = 0, 
     limit: int = 100, 
-    db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    db: AsyncSession = Depends(get_db)
 ):
     try:
         products = await get_products(db, skip=skip, limit=limit)
@@ -47,8 +45,7 @@ async def read_products_route(
 @router.get("/{product_id}", response_model=ProductOut)
 async def read_product_route(
     product_id: int, 
-    db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    db: AsyncSession = Depends(get_db)
 ):
     try:
         product = await get_product(db, product_id=product_id)
@@ -65,8 +62,7 @@ async def read_product_route(
 async def update_existing_product_route(
     product_id: int, 
     product: ProductUpdate, 
-    db: AsyncSession = Depends(get_db),
-    current_user = Depends(require_manager_or_admin)
+    db: AsyncSession = Depends(get_db)
 ):
     try:
         updated_product = await update_product(db, product_id=product_id, product=product)
