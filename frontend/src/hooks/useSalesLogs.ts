@@ -8,12 +8,12 @@ export const useSalesLogs = (productId: number | null) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchLogs = useCallback(async () => {
+    const fetchLogs = useCallback(async (customFilters?: Record<string, any>) => {
         if (!productId) return;
         setLoading(true);
         setError(null);
         try {
-            const response = await salesAPI.getAll(productId);
+            const response = await salesAPI.getAll(productId, customFilters);
             setLogs(response.data);
         } catch (err) {
             setError('Failed to fetch sales logs.');

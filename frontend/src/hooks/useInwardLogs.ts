@@ -8,12 +8,12 @@ export const useInwardLogs = (productId: number | null) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchLogs = useCallback(async () => {
+    const fetchLogs = useCallback(async (customFilters?: Record<string, any>) => {
         if (!productId) return;
         setLoading(true);
         setError(null);
         try {
-            const response = await inwardAPI.getAll(productId);
+            const response = await inwardAPI.getAll(productId, customFilters);
             setLogs(response.data);
         } catch (err) {
             setError('Failed to fetch inward logs.');

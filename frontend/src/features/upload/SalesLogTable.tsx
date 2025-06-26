@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space } from 'antd';
+import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse } from 'antd';
 import dayjs from 'dayjs';
 import { SalesLog } from '../../types';
 import { useSalesLogs } from '../../hooks/useSalesLogs';
@@ -131,10 +131,11 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     colorCodePairs,
     isReadOnly
 }) => {
-    const { logs, loading, createLog, updateLog, deleteLog } = useSalesLogs(productId);
+    const { logs, loading, createLog, updateLog, deleteLog, fetchLogs } = useSalesLogs(productId);
     const [form] = Form.useForm();
     const [editingKey, setEditingKey] = useState<React.Key>('');
     const [isAdding, setIsAdding] = useState(false);
+    const [filterForm] = Form.useForm();
 
     const isEditing = (record: SalesLog) => record.id === editingKey;
 
@@ -297,22 +298,56 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     };
 
     return (
-        <Form form={form} component={false}>
-             {!isAdding && !isReadOnly ? (
-                <Button onClick={handleAddClick} type="primary" style={{ marginBottom: 16 }}>Add a row</Button>
-            ) : null}
-            {isAdding && !isReadOnly && renderNewRowForm()}
-            <Table
-                components={{ body: { cell: EditableCell } }}
-                bordered
-                dataSource={Array.isArray(logs) ? logs : []}
-                columns={mergedColumns}
-                rowClassName="editable-row"
-                pagination={{ onChange: cancel }}
-                loading={loading}
-                rowKey="id"
-            />
-        </Form>
+        <>
+            <Collapse style={{ marginBottom: 16 }}>
+                <Collapse.Panel header="Filter" key="1">
+                    <Form
+                        form={filterForm}
+                        layout="inline"
+                        onFinish={(values) => {
+                            const { dateRange, stakeholder } = values;
+                            const filterParams: Record<string, any> = {};
+                            if (dateRange && dateRange.length === 2) {
+                                filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
+                                filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
+                            }
+                            if (stakeholder) filterParams.stakeholder = stakeholder;
+                            fetchLogs(filterParams);
+                        }}
+                        style={{ marginBottom: 8 }}
+                    >
+                        <Form.Item name="dateRange" label="Date Range">
+                            <DatePicker.RangePicker format="YYYY-MM-DD" />
+                        </Form.Item>
+                        <Form.Item name="stakeholder" label="Agency/Store">
+                            <Input placeholder="Agency or Store" allowClear style={{ width: 180 }} />
+                        </Form.Item>
+                        <Form.Item>
+                            <Button type="primary" htmlType="submit">Apply</Button>
+                        </Form.Item>
+                        <Form.Item>
+                            <Button onClick={() => { filterForm.resetFields(); fetchLogs({}); }}>Reset</Button>
+                        </Form.Item>
+                    </Form>
+                </Collapse.Panel>
+            </Collapse>
+            <Form form={form} component={false}>
+                {!isAdding && !isReadOnly ? (
+                    <Button onClick={handleAddClick} type="primary" style={{ marginBottom: 16 }}>Add a row</Button>
+                ) : null}
+                {isAdding && !isReadOnly && renderNewRowForm()}
+                <Table
+                    components={{ body: { cell: EditableCell } }}
+                    bordered
+                    dataSource={Array.isArray(logs) ? logs : []}
+                    columns={mergedColumns}
+                    rowClassName="editable-row"
+                    pagination={{ onChange: cancel }}
+                    loading={loading}
+                    rowKey="id"
+                />
+            </Form>
+        </>
     );
 };
 

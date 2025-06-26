@@ -3,6 +3,8 @@ from sqlalchemy import select
 from ...models.sales import SalesLog
 from ...schemas.sales import SalesLogCreate, SalesLogUpdate, SalesLog as SalesLogSchema
 from . import product_color_stock as crud_stock
+from typing import Optional
+from datetime import datetime
 
 def sa_obj_to_dict(obj):
     """Safely convert SQLAlchemy object to dictionary without triggering lazy loading"""
@@ -24,8 +26,15 @@ def sa_obj_to_dict(obj):
         # Fallback: return a minimal dict with just the ID
         return {"id": getattr(obj, 'id', None)}
 
-async def get_sales_logs_by_product(db: AsyncSession, product_id: int):
-    result = await db.execute(select(SalesLog).filter(SalesLog.product_id == product_id))
+async def get_sales_logs_by_product(db: AsyncSession, product_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None, stakeholder: Optional[str] = None):
+    query = select(SalesLog).filter(SalesLog.product_id == product_id)
+    if start_date:
+        query = query.filter(SalesLog.date >= datetime.strptime(start_date, '%Y-%m-%d').date())
+    if end_date:
+        query = query.filter(SalesLog.date <= datetime.strptime(end_date, '%Y-%m-%d').date())
+    if stakeholder:
+        query = query.filter((SalesLog.agency_name.ilike(f'%{stakeholder}%')) | (SalesLog.store_name.ilike(f'%{stakeholder}%')))
+    result = await db.execute(query)
     logs = result.scalars().all()
     return [SalesLogSchema.model_validate(sa_obj_to_dict(log)) for log in logs]
 

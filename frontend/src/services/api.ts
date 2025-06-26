@@ -64,14 +64,14 @@ export const uploadAPI = {
 };
 
 export const inwardAPI = {
-  getAll: (productId: number) => api.get<InwardLog[]>(`${API_ENDPOINTS.INWARD}/${productId}`),
+  getAll: (productId: number, filters?: Record<string, any>) => api.get<InwardLog[]>(`${API_ENDPOINTS.INWARD}/${productId}`, { params: filters }),
   create: (data: InwardLog) => api.post<InwardLog>(API_ENDPOINTS.INWARD, data),
   update: (logId: number, data: InwardLog) => api.put<InwardLog>(`${API_ENDPOINTS.INWARD}/${logId}`, data),
   delete: (logId: number) => api.delete(`${API_ENDPOINTS.INWARD}/${logId}`),
 };
 
 export const salesAPI = {
-  getAll: (productId: number) => api.get<SalesLog[]>(`${API_ENDPOINTS.SALES}/${productId}`),
+  getAll: (productId: number, filters?: Record<string, any>) => api.get<SalesLog[]>(`${API_ENDPOINTS.SALES}/${productId}`, { params: filters }),
   create: (data: SalesLog) => api.post<SalesLog>(API_ENDPOINTS.SALES, data),
   update: (logId: number, data: SalesLog) => api.put<SalesLog>(`${API_ENDPOINTS.SALES}/${logId}`, data),
   delete: (logId: number) => api.delete(`${API_ENDPOINTS.SALES}/${logId}`),

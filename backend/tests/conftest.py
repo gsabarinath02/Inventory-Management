@@ -58,8 +58,8 @@ async def clean_db_tables():
             except Exception as e:
                 print(f"Skipping table {table.name}: {e}")
 
-@pytest.fixture(scope="session")
-def override_get_db():
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def override_get_db():
     async def _override():
         async with TestingSessionLocal() as session:
             yield session

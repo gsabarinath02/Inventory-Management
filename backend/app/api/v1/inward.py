@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 from ...schemas.inward import InwardLog, InwardLogCreate, InwardLogUpdate
 from ...core.crud import inward as crud
 from ...api import deps
@@ -10,11 +10,14 @@ router = APIRouter()
 
 @router.get("/{product_id}", response_model=List[InwardLog])
 async def read_inward_logs(
-    product_id: int, 
+    product_id: int,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    stakeholder: Optional[str] = Query(None),
     db: AsyncSession = Depends(deps.get_db),
     current_user = Depends(get_current_user)
 ):
-    return await crud.get_inward_logs_by_product(db, product_id=product_id)
+    return await crud.get_inward_logs_by_product(db, product_id=product_id, start_date=start_date, end_date=end_date, stakeholder=stakeholder)
 
 @router.post("/", response_model=InwardLog)
 async def create_inward_log_entry(
