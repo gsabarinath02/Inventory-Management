@@ -1,97 +1,134 @@
 # Inventory Management System
 
-A full-stack inventory management tool built with FastAPI (backend) and React (frontend) with support for product variants (sizes and colors), stock matrix visualization, and CSV data upload.
+A full-stack inventory management tool for products with size/color variants, robust stock tracking, audit logs, and advanced bulk data workflows.  
+**Backend:** FastAPI + PostgreSQL | **Frontend:** React + Ant Design
+
+---
 
 ## Features
 
 ### Backend (FastAPI)
-- **Product Management**: CRUD operations for products with size/color variants
-- **Stock Tracking**: Inward and sales logs with size/color granularity
-- **Stock Matrix API**: Group stock by color and size combinations
-- **PostgreSQL Database**: Async SQLAlchemy with asyncpg
-- **CORS Enabled**: Configured for frontend integration
+- **Product Management:** CRUD for products with size/color variants and color-code mapping
+- **Stock Tracking:** Inward and sales logs with size/color granularity, atomic stock updates
+- **Bulk Operations:** Bulk create and delete for logs (API and UI)
+- **Quick Retrieval:** Fetch latest log by date and stakeholder/store
+- **Audit Logging:** Track all changes for compliance
+- **Role-Based Access:** JWT authentication, admin/manager/viewer roles
+- **Async SQLAlchemy:** High performance, scalable
+- **CORS & Security:** Secure API, input validation, password hashing
 
-### Frontend (React + Vite)
-- **Product List**: AG-Grid table with inline editing
-- **Stock Matrix View**: Color × Size grid showing current stock levels
-- **CSV Upload**: Paste CSV data for bulk inward/sales log creation
-- **Ant Design UI**: Modern, responsive interface
-- **Real-time Refresh**: Update stock data with refresh button
+### Frontend (React + Ant Design)
+- **Modern UI:** Responsive, accessible, and mobile-friendly
+- **Product List & Stock Matrix:** Visualize stock by color/size
+- **Inward & Sales Logs:** Add, edit, delete, filter, and bulk manage logs
+- **Bulk Excel Paste:** Paste tab-delimited data from Excel, preview, validate, and overwrite logs
+- **Quick Lookup:** Instantly fetch the latest log by date and stakeholder/store
+- **Overwrite Workflow:** Safely replace all logs for a product/date/store with confirmation
+- **User Management:** Admin UI for users/roles
+- **Audit Logs:** View all system changes
+- **Testing:** Unit and integration tests for frontend and backend
+
+---
 
 ## Quick Start
 
 ### Using Docker Compose (Recommended)
 
-#### Production Mode
+#### Production
 ```bash
-# Build and start all services
 docker-compose up --build -d
+```
 
-# View logs
-docker-compose logs -f
+#### Development (hot reload)
+```bash
+docker-compose -f docker-compose.dev.yml up --build -d
+```
 
-# Stop services
+#### Stop Services
+```bash
 docker-compose down
 ```
 
-#### Development Mode (with hot reload)
-```bash
-# Start development environment
-docker-compose -f docker-compose.dev.yml up --build -d
-
-# View logs
-docker-compose -f docker-compose.dev.yml logs -f
-
-# Stop services
-docker-compose -f docker-compose.dev.yml down
-```
+---
 
 ### Manual Setup
 
-#### Backend Setup
+#### Backend
 ```bash
 cd backend
 pip install -r requirements.txt
-python init_db.py  # Initialize database with sample data
-uvicorn main:app --reload
+python init_db.py
+uvicorn app.main:app --reload
 ```
 
-#### Frontend Setup
+#### Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
+---
+
 ## Access Points
 
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
-- **Health Check**: http://localhost:3000/health
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:8000
+- **API Docs:** http://localhost:8000/docs
+
+---
+
+## Key Workflows
+
+### Bulk Excel Paste (Inward/Sales Logs)
+- Open the "Bulk Paste from Excel" panel above the log table.
+- Paste tab-delimited data (copied from Excel) in the format:
+  ```
+  Date	Color	Colour Code	S	M	Category	Stakeholder
+  2024-06-27	Red	101	10	5	Supply	Store A
+  ```
+- Click **Load** to preview and validate.
+- If any Color/Colour Code pair is invalid, a warning is shown and loading is blocked.
+- After successful load, click **Overwrite** to replace all matching logs (with confirmation).
+
+### Quick Retrieval by Date & Name
+- In the Filter panel, use the **Quick Date** and **Store / Supplier** fields.
+- Returns only the most recent matching log for that date and name.
+
+### Overwrite Workflow
+- After loading bulk data, click **Overwrite**.
+- Confirms and then deletes all existing logs for the product/date/store, then bulk-creates the new rows.
+
+---
 
 ## API Endpoints
 
 ### Products
-- `GET /products` - List all products
-- `POST /products` - Create new product
-- `GET /products/{id}` - Get product details
-- `PUT /products/{id}` - Update product
-- `DELETE /products/{id}` - Delete product
-
-### Stock
-- `GET /stock/{id}` - Get product stock summary
-- `GET /api/v1/stock/{id}/matrix` - Get stock matrix by color/size
+- `GET /api/v1/products`
+- `POST /api/v1/products`
+- `PUT /api/v1/products/{id}`
+- `DELETE /api/v1/products/{id}`
 
 ### Inward Logs
-- `GET /inward` - List inward logs
-- `POST /inward` - Create inward log
+- `GET /api/v1/inward/{product_id}?date=YYYY-MM-DD&stakeholder_name=...`
+- `POST /api/v1/inward/`
+- `POST /api/v1/inward/bulk-create`
+- `DELETE /api/v1/inward/bulk-delete`
 
 ### Sales Logs
-- `GET /sales` - List sales logs
-- `POST /sales` - Create sales log
+- `GET /api/v1/sales/{product_id}?date=YYYY-MM-DD&store_name=...`
+- `POST /api/v1/sales/`
+- `POST /api/v1/sales/bulk-create`
+- `DELETE /api/v1/sales/bulk-delete`
 
-## Data Models
+### Auth & Users
+- `POST /api/v1/auth/login`
+- `GET /api/v1/users/` (admin only)
+- See `AUTHENTICATION_README.md` for full details
+
+---
+
+## Data Model Example
 
 ### Product
 ```json
@@ -99,11 +136,8 @@ npm run dev
   "id": 1,
   "name": "T-Shirt",
   "sku": "TS001",
-  "description": "Cotton T-Shirt",
-  "unit_price": 25.99,
-  "sizes": ["S", "M", "L", "XL"],
-  "colors": ["Red", "Blue", "Black"],
-  "created_at": "2024-01-01T00:00:00Z"
+  "sizes": ["S", "M", "L"],
+  "colors": [{"color": "Red", "colour_code": 101}, ...]
 }
 ```
 
@@ -111,250 +145,85 @@ npm run dev
 ```json
 {
   "product_id": 1,
-  "quantity": 10,
-  "unit_cost": 15.00,  // inward only
-  "unit_price": 25.99, // sales only
-  "size": "M",
+  "date": "2024-06-27",
   "color": "Red",
-  "supplier": "Supplier A", // inward only
-  "customer": "Customer A", // sales only
-  "notes": "Initial stock"
+  "colour_code": 101,
+  "sizes": {"S": 10, "M": 5},
+  "category": "Supply", // Inward only
+  "stakeholder_name": "Store A", // Inward only
+  "agency_name": "Agency X", // Sales only
+  "store_name": "Store Y", // Sales only
+  "operation": "Inward" // or "Sale"
 }
 ```
 
-## CSV Upload Format
+---
 
-### Inward Log CSV
-```csv
-product_id,quantity,unit_cost,size,color,supplier,notes
-1,10,15.00,M,Red,Supplier A,Initial stock
-1,5,15.00,L,Blue,Supplier A,Restock
+## Bulk Paste Format
+
+**Inward Log:**
+```
+Date	Color	Colour Code	S	M	Category	Stakeholder
+2024-06-27	Red	101	10	5	Supply	Store A
 ```
 
-### Sales Log CSV
-```csv
-product_id,quantity,unit_price,size,color,customer,notes
-1,2,25.99,M,Red,Customer A,Online order
-1,1,25.99,L,Blue,Customer B,Store sale
+**Sales Log:**
+```
+Date	Color	Colour Code	S	M	Agency	Store
+2024-06-27	Red	101	2	1	Agency X	Store Y
 ```
 
-## Stock Matrix
+- Columns must match your product's sizes and color-code pairs.
+- Invalid color/code pairs are blocked with a warning.
 
-The stock matrix shows current inventory levels organized by:
-- **Rows**: Colors
-- **Columns**: Sizes
-- **Cells**: Current stock (inward - sales)
-
-Stock levels are color-coded:
-- 🟢 **Green**: Positive stock
-- 🟠 **Orange**: Zero stock
-- 🔴 **Red**: Negative stock (oversold)
-
-## Docker Architecture
-
-### Production Setup
-- **Frontend**: Nginx serving built React app
-- **Backend**: FastAPI with uvicorn
-- **Database**: PostgreSQL 15
-- **Networking**: Isolated Docker network
-- **Health Checks**: All services monitored
-
-### Development Setup
-- **Frontend**: Vite dev server with hot reload
-- **Backend**: FastAPI with auto-reload
-- **Database**: PostgreSQL 15
-- **Volume Mounts**: Live code editing
-
-## Environment Variables
-
-### Backend (.env)
-```env
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/inventory_db
-SECRET_KEY=your-secret-key-here
-DEBUG=True
-ALLOWED_HOSTS=["*"]
-```
-
-### Docker Compose
-Environment variables are configured in `docker-compose.yml` for all services.
-
-## Development
-
-### Backend Development
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Frontend Development
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Database Migrations
-The application uses SQLAlchemy's `create_all()` for automatic table creation. For production, consider using Alembic for proper migrations.
+---
 
 ## Testing
 
-### Backend Tests
+### Backend
 ```bash
 cd backend
 pytest
 ```
 
-### Frontend Tests
+### Frontend
 ```bash
 cd frontend
 npm test
 ```
 
-## CI/CD
+---
 
-GitHub Actions workflows are configured for:
-- Backend linting and testing
-- Frontend linting and testing
-- Automatic runs on push/PR to respective directories
+## Security & Best Practices
+
+- All sensitive endpoints require JWT authentication.
+- Role-based access enforced on backend and frontend.
+- All user input is validated and sanitized.
+- Passwords are hashed and never stored in plain text.
+- CORS and rate limiting enabled.
+
+---
 
 ## Troubleshooting
 
-### Common Issues
+- See the "Troubleshooting" section in this README for common issues and solutions.
+- For authentication/user management, see `AUTHENTICATION_README.md`.
 
-#### 1. **500 Internal Server Error**
-**Symptoms**: API calls returning 500 errors
-**Solutions**:
-```bash
-# Check backend logs
-docker-compose logs backend
-
-# Restart backend service
-docker-compose restart backend
-
-# Check database connection
-docker-compose exec postgres pg_isready -U postgres
-```
-
-#### 2. **Database Connection Issues**
-**Symptoms**: Backend can't connect to PostgreSQL
-**Solutions**:
-```bash
-# Wait for database to be ready
-docker-compose logs postgres
-
-# Restart database
-docker-compose restart postgres
-
-# Check database health
-docker-compose exec postgres pg_isready -U postgres
-```
-
-#### 3. **Frontend Build Errors**
-**Symptoms**: Frontend container fails to build
-**Solutions**:
-```bash
-# Clear Docker cache
-docker system prune -a
-
-# Rebuild frontend
-docker-compose build --no-cache frontend
-
-# Check Node.js version (requires 18+)
-docker-compose exec frontend node --version
-```
-
-#### 4. **API Proxy Issues**
-**Symptoms**: Frontend can't reach backend API
-**Solutions**:
-```bash
-# Check nginx configuration
-docker-compose exec frontend cat /etc/nginx/nginx.conf
-
-# Test API directly
-curl http://localhost:8000/products
-
-# Check network connectivity
-docker-compose exec frontend ping backend
-```
-
-#### 5. **Port Already in Use**
-**Symptoms**: Docker can't bind to ports
-**Solutions**:
-```bash
-# Stop all containers
-docker-compose down
-
-# Check what's using the ports
-lsof -i :3000
-lsof -i :8000
-lsof -i :5432
-
-# Kill processes using the ports
-sudo kill -9 <PID>
-```
-
-### Debug Script
-
-Use the provided debug script to check all services:
-```bash
-chmod +x debug.sh
-./debug.sh
-```
-
-### Manual Debugging Steps
-
-1. **Check container status**:
-   ```bash
-   docker-compose ps
-   ```
-
-2. **View service logs**:
-   ```bash
-   docker-compose logs -f backend
-   docker-compose logs -f frontend
-   docker-compose logs -f postgres
-   ```
-
-3. **Test individual services**:
-   ```bash
-   # Test backend
-   curl http://localhost:8000/
-   
-   # Test frontend
-   curl http://localhost:3000/
-   
-   # Test database
-   docker-compose exec postgres psql -U postgres -d inventory_db -c "SELECT 1;"
-   ```
-
-4. **Reset everything**:
-   ```bash
-   docker-compose down -v
-   docker system prune -a
-   docker-compose up --build -d
-   ```
-
-### Performance Issues
-
-1. **Slow API responses**: Check database indexes and query optimization
-2. **Frontend loading slowly**: Check nginx caching and gzip compression
-3. **Memory issues**: Monitor container resource usage with `docker stats`
-
-### Security Issues
-
-1. **CORS errors**: Check CORS configuration in backend
-2. **Authentication**: Implement proper authentication for production
-3. **Database security**: Change default passwords and restrict access
+---
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+3. Make your changes (with tests)
+4. Submit a pull request
+
+---
 
 ## License
 
-MIT License - see LICENSE file for details. 
+MIT License - see LICENSE file for details.
+
+---
+
+**For more details on authentication and user management, see `AUTHENTICATION_README.md`.** 
