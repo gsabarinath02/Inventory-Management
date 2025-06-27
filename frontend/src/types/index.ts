@@ -7,6 +7,8 @@ export interface Product {
     unit_price: number;
     sizes: string[];
     colors: { color: string; colour_code: number }[];
+    allowed_stores?: string[];
+    allowed_agencies?: string[];
     created_at: string;
     updated_at?: string;
 }
@@ -77,6 +79,8 @@ export interface ProductFormData {
     unit_price: number;
     sizes: string[];
     colors: { color: string; colour_code: number }[];
+    allowed_stores?: string[];
+    allowed_agencies?: string[];
 }
 
 // API Response types

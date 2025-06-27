@@ -26,17 +26,17 @@ async def create_new_product_route(
         await create_audit_log(
             db,
             AuditLogCreate(
-                user_id=0,  # Replace with real user context if available
+                user_id=None,  # System action
                 username="system",
                 action="PRODUCT_CREATE",
                 entity="Product",
                 entity_id=product.id,
                 field_changed=None,
                 old_value=None,
-                new_value=json.dumps(product.__dict__)
+                new_value=json.dumps(ProductOut.model_validate(product).model_dump(), default=str)
             )
         )
-        return product
+        return ProductOut.model_validate(product)
     except IntegrityError as e:
         if "ix_products_sku" in str(e.orig) or "unique constraint" in str(e.orig):
             raise HTTPException(status_code=400, detail="SKU already exists.")
@@ -54,7 +54,7 @@ async def read_products_route(
 ):
     try:
         products = await get_products(db, skip=skip, limit=limit)
-        return products
+        return [ProductOut.model_validate(p) for p in products]
     except Exception as e:
         logger.error(f"Error fetching products: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -68,7 +68,7 @@ async def read_product_route(
         product = await get_product(db, product_id=product_id)
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found")
-        return product
+        return ProductOut.model_validate(product)
     except HTTPException:
         raise
     except Exception as e:
@@ -89,17 +89,17 @@ async def update_existing_product_route(
         await create_audit_log(
             db,
             AuditLogCreate(
-                user_id=0,  # Replace with real user context if available
+                user_id=None,  # System action
                 username="system",
                 action="PRODUCT_UPDATE",
                 entity="Product",
                 entity_id=product_id,
                 field_changed=None,
-                old_value=json.dumps(old_product.__dict__) if old_product else None,
-                new_value=json.dumps(updated_product.__dict__)
+                old_value=json.dumps(ProductOut.model_validate(old_product).model_dump(), default=str) if old_product else None,
+                new_value=json.dumps(ProductOut.model_validate(updated_product).model_dump(), default=str)
             )
         )
-        return updated_product
+        return ProductOut.model_validate(updated_product)
     except HTTPException:
         raise
     except Exception as e:
@@ -117,19 +117,24 @@ async def delete_existing_product_route(
         success = await delete_product(db, product_id=product_id)
         if not success:
             raise HTTPException(status_code=404, detail="Product not found")
-        await create_audit_log(
-            db,
-            AuditLogCreate(
-                user_id=0,  # Replace with real user context if available
-                username="system",
-                action="PRODUCT_DELETE",
-                entity="Product",
-                entity_id=product_id,
-                field_changed=None,
-                old_value=json.dumps(product.__dict__) if product else None,
-                new_value=None
+        # Defensive: Only log if product is a valid instance and serialization works
+        old_value = json.dumps(ProductOut.model_validate(product).model_dump(), default=str)
+        try:
+            await create_audit_log(
+                db,
+                AuditLogCreate(
+                    user_id=None,  # System action
+                    username="system",
+                    action="PRODUCT_DELETE",
+                    entity="Product",
+                    entity_id=product_id,
+                    field_changed=None,
+                    old_value=old_value,
+                    new_value=None
+                )
             )
-        )
+        except Exception as e:
+            logger.error(f"Audit log creation failed for product {product_id}: {e}")
     except HTTPException:
         raise
     except Exception as e:

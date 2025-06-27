@@ -109,6 +109,30 @@ const ProductForm: React.FC<ProductFormProps> = ({
       </Form.Item>
 
       <Form.Item
+        name="allowed_agencies"
+        label="Allowed Agencies"
+        rules={[{ required: true, message: 'Please enter at least one allowed agency' }]}
+      >
+        <Select
+          mode="tags"
+          style={{ width: '100%' }}
+          placeholder="Type and press Enter to add agencies"
+        />
+      </Form.Item>
+
+      <Form.Item
+        name="allowed_stores"
+        label="Allowed Stores"
+        rules={[]}
+      >
+        <Select
+          mode="tags"
+          style={{ width: '100%' }}
+          placeholder="Type and press Enter to add stores (optional)"
+        />
+      </Form.Item>
+
+      <Form.Item
         label="Colors & Colour Codes"
         required={false}
       >

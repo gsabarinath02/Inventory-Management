@@ -41,11 +41,16 @@ const ProductList: React.FC = () => {
 
   const handleModalSubmit = async (values: any) => {
     setModalError(null);
+    const payload = {
+      ...values,
+      allowed_stores: Array.isArray(values.allowed_stores) ? values.allowed_stores : [],
+      allowed_agencies: Array.isArray(values.allowed_agencies) ? values.allowed_agencies : [],
+    };
     if (editingProduct) {
-      const success = await updateProduct(editingProduct.id, values);
+      const success = await updateProduct(editingProduct.id, payload);
       if (success) setModalVisible(false);
     } else {
-      const success = await createProduct(values);
+      const success = await createProduct(payload);
       if (success) setModalVisible(false);
     }
   };

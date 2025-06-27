@@ -14,6 +14,8 @@ class Product(Base):
     sizes = Column(JSON, nullable=False)
     # colors: List[Dict[str, int]] as JSON, e.g. [{"color": "red", "colour_code": 101}]
     colors = Column(JSON, nullable=False)
+    allowed_stores = Column(JSON, nullable=True)
+    allowed_agencies = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

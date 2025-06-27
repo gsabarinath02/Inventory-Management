@@ -12,6 +12,8 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     sizes: List[str] = Field(default_factory=list)
     colors: List[ColorCodePair] = Field(default_factory=list, description="List of color/colour_code pairs")
+    allowed_stores: List[str] = Field(default_factory=list, description="List of allowed store names")
+    allowed_agencies: List[str] = Field(default_factory=list, description="List of allowed agency names")
 
 class ProductCreate(ProductBase):
     unit_price: float  # Allow any float for testing

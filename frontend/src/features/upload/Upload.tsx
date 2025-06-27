@@ -99,6 +99,8 @@ const Upload: React.FC = () => {
                                     availableSizes={Array.isArray(selectedProduct.sizes) ? selectedProduct.sizes : []}
                                     colorCodePairs={Array.isArray(selectedProduct.colors) ? selectedProduct.colors : []}
                                     isReadOnly={user?.role === 'viewer'}
+                                    allowedAgencies={Array.isArray(selectedProduct.allowed_agencies) ? selectedProduct.allowed_agencies : []}
+                                    allowedStores={Array.isArray(selectedProduct.allowed_stores) ? selectedProduct.allowed_stores : []}
                                 />
                             </motion.div>
                         )}

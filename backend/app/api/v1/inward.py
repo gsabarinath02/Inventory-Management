@@ -46,7 +46,7 @@ async def create_inward_log_entry(
             entity_id=db_log.id,
             field_changed=None,
             old_value=None,
-            new_value=json.dumps(sa_obj_to_dict(db_log))
+            new_value=json.dumps(sa_obj_to_dict(db_log), default=str)
         )
     )
     return db_log
@@ -118,8 +118,8 @@ async def update_inward_log_entry(
             entity="InwardLog",
             entity_id=log_id,
             field_changed=None,
-            old_value=json.dumps(sa_obj_to_dict(old_log) if old_log else None),
-            new_value=json.dumps(sa_obj_to_dict(db_log))
+            old_value=json.dumps(sa_obj_to_dict(old_log) if old_log else None, default=str),
+            new_value=json.dumps(sa_obj_to_dict(db_log), default=str)
         )
     )
     if db_log is None:
@@ -142,7 +142,7 @@ async def delete_inward_log_entry(
             entity="InwardLog",
             entity_id=log_id,
             field_changed=None,
-            old_value=json.dumps(sa_obj_to_dict(db_log)) if db_log else None,
+            old_value=json.dumps(sa_obj_to_dict(db_log), default=str) if db_log else None,
             new_value=None
         )
     )

@@ -32,6 +32,8 @@ interface SalesLogTableProps {
     availableSizes: string[];
     colorCodePairs: ColorCodePair[];
     isReadOnly: boolean;
+    allowedAgencies?: string[];
+    allowedStores?: string[];
 }
 
 const getColorAndCodeOptions = (colorCodePairs: ColorCodePair[], colorValue?: string, codeValue?: number) => {
@@ -48,7 +50,7 @@ const getColorAndCodeOptions = (colorCodePairs: ColorCodePair[], colorValue?: st
   return { colorOptions, codeOptions };
 };
 
-const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair[]; form: any }> = ({
+const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair[]; form: any; allowedAgencies?: string[]; allowedStores?: string[] }> = ({
   editing,
   dataIndex,
   title,
@@ -57,6 +59,8 @@ const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair
   options = [],
   colorCodePairs,
   form,
+  allowedAgencies,
+  allowedStores,
   ...restProps
 }) => {
   const colorValue = form ? form.getFieldValue('color') : undefined;
@@ -105,6 +109,25 @@ const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair
             placeholder="Colour Code"
           />
         );
+      }
+      if (dataIndex === 'agency_name' && Array.isArray(allowedAgencies)) {
+        return <Select 
+          options={allowedAgencies.map(a => ({ label: a, value: a }))} 
+          placeholder="Agency"
+          showSearch
+          filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+          allowClear
+        />;
+      }
+      if (dataIndex === 'store_name' && Array.isArray(allowedStores)) {
+        return <Select 
+          options={allowedStores.map(s => ({ label: s, value: s }))} 
+          placeholder="Store"
+          showSearch
+          filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+          allowClear
+          notFoundContent={null}
+        />;
       }
       return <Select options={Array.isArray(options) ? options.map(opt => ({ label: opt, value: opt })) : []} />;
     }
@@ -157,7 +180,9 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     availableColors, 
     availableSizes,
     colorCodePairs,
-    isReadOnly
+    isReadOnly,
+    allowedAgencies,
+    allowedStores
 }) => {
     if (typeof productId !== 'number' || isNaN(productId)) return null;
     const { logs, loading, createLog, createLogsBulk, deleteLogsBulk, updateLog, deleteLog, fetchLogs } = useSalesLogs(productId);
@@ -317,8 +342,8 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         { title: 'Date', dataIndex: 'date', editable: true, inputType: 'date' as const, render: (text: string) => dayjs(text).format('YYYY-MM-DD')},
         { title: 'Colour Code', dataIndex: 'colour_code', editable: true, inputType: 'number' as const, render: (code: number) => code !== undefined ? code : '' },
         { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select' as const, options: availableColors },
-        { title: 'Agency', dataIndex: 'agency_name', editable: true, inputType: 'text' as const },
-        { title: 'Store', dataIndex: 'store_name', editable: true, inputType: 'text' as const },
+        { title: 'Agency', dataIndex: 'agency_name', editable: true, inputType: 'select' as const, options: allowedAgencies },
+        { title: 'Store', dataIndex: 'store_name', editable: true, inputType: 'select' as const, options: allowedStores },
         {
             title: 'Operation',
             dataIndex: 'operation',
@@ -477,8 +502,25 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         <InputNumber placeholder={size} min={0} />
                     </Form.Item>
                 ))}
-                <Form.Item name="agency_name"><Input placeholder="Agency"/></Form.Item>
-                <Form.Item name="store_name"><Input placeholder="Store"/></Form.Item>
+                <Form.Item name="agency_name">
+                  <Select
+                    placeholder="Agency"
+                    options={Array.isArray(allowedAgencies) ? allowedAgencies.map(a => ({ label: a, value: a })) : []}
+                    showSearch
+                    filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                    allowClear
+                  />
+                </Form.Item>
+                <Form.Item name="store_name">
+                  <Select
+                    placeholder="Store"
+                    options={Array.isArray(allowedStores) ? allowedStores.map(s => ({ label: s, value: s })) : []}
+                    showSearch
+                    filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                    allowClear
+                    notFoundContent={null}
+                  />
+                </Form.Item>
                 <Form.Item>
                     <Button htmlType="submit" type="primary">Save</Button>
                     <Button onClick={cancel} style={{marginLeft: 8}}>Cancel</Button>
@@ -615,7 +657,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                             <Button onClick={handleDownload} type="default">Download</Button>
                         </Form.Item>
                         <Form.Item>
-                            <Button danger type="default" onClick={() => setBulkDeleteModalVisible(true)} disabled={logs.length === 0}>Bulk Delete</Button>
+                            <Button danger type="default" onClick={() => setBulkDeleteModalVisible(true)} disabled={logs.length === 0} icon={<DeleteOutlined />} />
                         </Form.Item>
                     </Form>
                 </Collapse.Panel>
@@ -626,7 +668,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
             ) : null}
             {isAdding && !isReadOnly && renderNewRowForm()}
             <Table
-                components={{ body: { cell: (props: any) => <EditableCell {...props} colorCodePairs={colorCodePairs} form={form} /> } }}
+                components={{ body: { cell: (props: any) => <EditableCell {...props} colorCodePairs={colorCodePairs} form={form} allowedAgencies={allowedAgencies} allowedStores={allowedStores} /> } }}
                 bordered
                 dataSource={Array.isArray(logs) ? logs : []}
                 columns={mergedColumns}

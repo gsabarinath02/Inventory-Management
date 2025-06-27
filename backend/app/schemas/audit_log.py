@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, List
 
 class AuditLogBase(BaseModel):
-    user_id: int
+    user_id: Optional[int] = None
     username: str
     action: str
     entity: str
