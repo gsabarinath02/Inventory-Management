@@ -9,7 +9,7 @@ export const useInwardLogs = (productId: number | null) => {
     const [error, setError] = useState<string | null>(null);
 
     const fetchLogs = useCallback(async (customFilters?: Record<string, any>) => {
-        if (!productId) return;
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         setLoading(true);
         setError(null);
         try {
@@ -23,7 +23,8 @@ export const useInwardLogs = (productId: number | null) => {
         }
     }, [productId]);
 
-    const createLog = async (log: InwardLog) => {
+    const createLog = async (log: Partial<InwardLog>) => {
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         try {
             await inwardAPI.create(log);
             showSuccess('Log created successfully.');
@@ -33,7 +34,8 @@ export const useInwardLogs = (productId: number | null) => {
         }
     };
 
-    const updateLog = async (id: number, log: InwardLog) => {
+    const updateLog = async (id: number, log: Partial<InwardLog>) => {
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         try {
             await inwardAPI.update(id, log);
             showSuccess('Log updated successfully.');
@@ -44,6 +46,7 @@ export const useInwardLogs = (productId: number | null) => {
     };
 
     const deleteLog = async (id: number) => {
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         try {
             await inwardAPI.delete(id);
             showSuccess('Log deleted successfully.');

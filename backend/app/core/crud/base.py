@@ -95,34 +95,43 @@ async def get_stock_info(db: AsyncSession, product_id: int) -> Optional[StockInf
     product = await get_product(db, product_id)
     if not product:
         return None
-    
-    # Calculate inward totals
-    inward_result = await db.execute(
-        select(
-            func.sum(InwardLog.quantity).label("total_inward"),
-            func.sum(InwardLog.quantity * InwardLog.unit_cost).label("total_inward_value")
-        ).where(InwardLog.product_id == product_id)
-    )
-    inward_data = inward_result.first()
-    
-    # Calculate sales totals
-    sales_result = await db.execute(
-        select(
-            func.sum(SalesLog.quantity).label("total_sales"),
-            func.sum(SalesLog.quantity * SalesLog.unit_price).label("total_sales_value")
-        ).where(SalesLog.product_id == product_id)
-    )
-    sales_data = sales_result.first()
-    
-    total_inward = inward_data.total_inward or 0
-    total_sales = sales_data.total_sales or 0
-    current_stock = total_inward - total_sales
-    
+
+    # Fetch all inward and sales logs for this product
+    inward_logs = await db.execute(select(InwardLog).where(InwardLog.product_id == product_id))
+    inward_logs = inward_logs.scalars().all()
+    sales_logs = await db.execute(select(SalesLog).where(SalesLog.product_id == product_id))
+    sales_logs = sales_logs.scalars().all()
+
+    # Aggregate per-size and total
+    size_keys = set()
+    for log in inward_logs + sales_logs:
+        if hasattr(log, 'sizes') and isinstance(log.sizes, dict):
+            size_keys.update(log.sizes.keys())
+    size_keys = sorted(size_keys)
+
+    inward_by_size = {size: 0 for size in size_keys}
+    sales_by_size = {size: 0 for size in size_keys}
+
+    for log in inward_logs:
+        if hasattr(log, 'sizes') and isinstance(log.sizes, dict):
+            for size, qty in log.sizes.items():
+                inward_by_size[size] = inward_by_size.get(size, 0) + qty
+
+    for log in sales_logs:
+        if hasattr(log, 'sizes') and isinstance(log.sizes, dict):
+            for size, qty in log.sizes.items():
+                sales_by_size[size] = sales_by_size.get(size, 0) + qty
+
+    stock_by_size = {size: inward_by_size.get(size, 0) - sales_by_size.get(size, 0) for size in size_keys}
+    total_inward = sum(inward_by_size.values())
+    total_sales = sum(sales_by_size.values())
+    current_stock = sum(stock_by_size.values())
+
+    # If StockInfo expects per-size breakdown, add it here; otherwise, just totals
     return StockInfo(
         product=product,
         total_inward=total_inward,
         total_sales=total_sales,
         current_stock=current_stock,
-        total_inward_value=inward_data.total_inward_value or 0,
-        total_sales_value=sales_data.total_sales_value or 0
+        stock_by_size=stock_by_size if hasattr(StockInfo, 'stock_by_size') else None
     ) 

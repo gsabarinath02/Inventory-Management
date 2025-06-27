@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse } from 'antd';
+import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, message } from 'antd';
 import dayjs from 'dayjs';
 import { SalesLog } from '../../types';
 import { useSalesLogs } from '../../hooks/useSalesLogs';
@@ -131,6 +131,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     colorCodePairs,
     isReadOnly
 }) => {
+    if (typeof productId !== 'number' || isNaN(productId)) return null;
     const { logs, loading, createLog, updateLog, deleteLog, fetchLogs } = useSalesLogs(productId);
     const [form] = Form.useForm();
     const [editingKey, setEditingKey] = useState<React.Key>('');
@@ -149,20 +150,24 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         setEditingKey('');
     };
 
-    const save = async (key: React.Key) => {
+    const save = async (key: React.Key, row?: Partial<SalesLog>) => {
         try {
-            const row = (await form.validateFields()) as SalesLog;
-            const newRow = { 
-                ...row, 
-                date: dayjs(row.date).format('YYYY-MM-DD'),
-                product_id: productId 
-            };
-            
             if (key === 'new_row') {
-                await createLog(newRow);
+                // row already contains sizes
+                console.log('FINAL PAYLOAD', row);
+                await createLog(row as any);
                 setIsAdding(false);
             } else {
-                await updateLog(key as number, newRow);
+                const values = await form.validateFields();
+                const payload = {
+                    ...values,
+                    sizes: values.sizes, // explicitly include nested sizes
+                    date: dayjs(values.date).format('YYYY-MM-DD'),
+                    product_id: productId,
+                    operation: 'Sale'
+                };
+                console.log('FINAL UPDATE PAYLOAD', payload);
+                await updateLog(key as number, payload);
             }
             setEditingKey('');
             onDataChange();
@@ -176,12 +181,21 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         form.resetFields();
     };
 
-    let columns = [
+    // Dynamically add a column for each size
+    const sizeColumns = Array.isArray(availableSizes)
+        ? availableSizes.map(size => ({
+            title: size,
+            dataIndex: ['sizes', size], // Use nested dataIndex for consistency
+            editable: true,
+            render: (_: any, record: SalesLog) => (record.sizes && record.sizes[size]) || 0,
+        }))
+        : [];
+
+    // Only the static columns have inputType/options
+    const staticColumns = [
         { title: 'Date', dataIndex: 'date', editable: true, inputType: 'date' as const, render: (text: string) => dayjs(text).format('YYYY-MM-DD')},
         { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select' as const, options: availableColors },
         { title: 'Colour Code', dataIndex: 'colour_code', editable: true, inputType: 'number' as const, render: (code: number) => code !== undefined ? code : '' },
-        { title: 'Size', dataIndex: 'size', editable: true, inputType: 'select' as const, options: availableSizes },
-        { title: 'Quantity', dataIndex: 'quantity', editable: true, inputType: 'number' as const },
         { title: 'Agency', dataIndex: 'agency_name', editable: true, inputType: 'text' as const },
         { title: 'Store', dataIndex: 'store_name', editable: true, inputType: 'text' as const },
         {
@@ -204,6 +218,16 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         },
     ];
 
+    let columns = [
+        staticColumns[0], // Date
+        staticColumns[1], // Color
+        staticColumns[2], // Colour Code
+        ...sizeColumns,
+        staticColumns[3], // Agency
+        staticColumns[4], // Store
+        staticColumns[5], // Operation
+    ];
+
     if (isReadOnly) {
         columns = columns.filter(col => col.dataIndex !== 'operation');
     }
@@ -212,18 +236,28 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         if (!col.editable) {
             return col;
         }
+        // Only pass inputType/options if they exist on the column
         return {
             ...col,
-            onCell: (record: SalesLog) => ({
-                record,
-                inputType: col.inputType || 'text',
-                dataIndex: col.dataIndex,
-                title: col.title,
-                editing: isEditing(record),
-                options: col.options,
-                colorCodePairs,
-                form,
-            }),
+            onCell: (record: SalesLog) => {
+                const base = {
+                    record,
+                    dataIndex: col.dataIndex,
+                    title: col.title,
+                    editing: isEditing(record),
+                };
+                // Type guard for inputType
+                if (typeof (col as any).inputType !== 'undefined') {
+                    // @ts-ignore
+                    base.inputType = (col as any).inputType;
+                }
+                // Type guard for options
+                if (typeof (col as any).options !== 'undefined') {
+                    // @ts-ignore
+                    base.options = (col as any).options;
+                }
+                return base;
+            },
         };
     }) : [];
     
@@ -265,9 +299,39 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         };
 
         return (
-            <Form form={form} layout="inline" style={{ marginBottom: 16 }} onFinish={() => save('new_row')}>
+            <Form form={form} layout="inline" style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }} onFinish={() => {
+                const values = form.getFieldsValue();
+                // Build sizes object from availableSizes and values
+                const sizes: Record<string, number> = {};
+                availableSizes.forEach(size => {
+                    const val = values[`size_${size}`];
+                    if (val !== undefined && val !== null && val !== '') sizes[size] = Number(val);
+                });
+                // Remove all size_X fields from cleanedValues
+                const cleanedValues: Record<string, any> = { ...values };
+                Object.keys(cleanedValues).forEach(k => {
+                    if (k.startsWith('size_')) delete cleanedValues[k];
+                });
+                // Validation: require color, colour_code, and at least one size > 0
+                if (!values.color || !values.colour_code) {
+                    message.error('Color and Colour Code are required.');
+                    return;
+                }
+                if (Object.keys(sizes).length === 0 || Object.values(sizes).every(qty => qty <= 0)) {
+                    message.error('At least one size with quantity > 0 is required.');
+                    return;
+                }
+                const newRow = {
+                    ...cleanedValues,
+                    sizes,
+                    date: dayjs(values.date).format('YYYY-MM-DD'),
+                    product_id: productId,
+                    operation: 'Sale',
+                };
+                save('new_row', newRow as Partial<SalesLog>);
+            }}>
                 <Form.Item name="date" rules={[{ required: true }]}><DatePicker format="YYYY-MM-DD"/></Form.Item>
-                <Form.Item name="color" rules={[{ required: true }]}>
+                <Form.Item name="color" rules={[{ required: true }]}> 
                     <Select
                         placeholder="Color"
                         style={{width: 120}}
@@ -276,7 +340,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         value={colorValue}
                     />
                 </Form.Item>
-                <Form.Item name="colour_code" rules={[{ required: true }]}>
+                <Form.Item name="colour_code" rules={[{ required: true }]}> 
                     <Select
                         placeholder="Colour Code"
                         style={{width: 120}}
@@ -285,8 +349,11 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         value={codeValue}
                     />
                 </Form.Item>
-                <Form.Item name="size" label="Size" style={{marginBottom:0}}><Select style={{width: 120}} options={Array.isArray(availableSizes) ? availableSizes.map(s => ({label: s, value: s})) : []} /></Form.Item>
-                <Form.Item name="quantity" rules={[{ required: true }]}><InputNumber placeholder="Qty" min={1}/></Form.Item>
+                {availableSizes.map(size => (
+                    <Form.Item key={size} name={`size_${size}`} label={size} style={{marginBottom:0, minWidth: 80}}>
+                        <InputNumber placeholder={size} min={0} />
+                    </Form.Item>
+                ))}
                 <Form.Item name="agency_name"><Input placeholder="Agency"/></Form.Item>
                 <Form.Item name="store_name"><Input placeholder="Store"/></Form.Item>
                 <Form.Item>
@@ -298,20 +365,21 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     };
 
     return (
-        <>
+        <Form form={form} component={false}>
             <Collapse style={{ marginBottom: 16 }}>
                 <Collapse.Panel header="Filter" key="1">
                     <Form
                         form={filterForm}
                         layout="inline"
                         onFinish={(values) => {
-                            const { dateRange, stakeholder } = values;
+                            const { dateRange, agency_name, store_name } = values;
                             const filterParams: Record<string, any> = {};
                             if (dateRange && dateRange.length === 2) {
                                 filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
                                 filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
                             }
-                            if (stakeholder) filterParams.stakeholder = stakeholder;
+                            if (agency_name) filterParams.agency_name = agency_name;
+                            if (store_name) filterParams.store_name = store_name;
                             fetchLogs(filterParams);
                         }}
                         style={{ marginBottom: 8 }}
@@ -319,8 +387,11 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         <Form.Item name="dateRange" label="Date Range">
                             <DatePicker.RangePicker format="YYYY-MM-DD" />
                         </Form.Item>
-                        <Form.Item name="stakeholder" label="Agency/Store">
-                            <Input placeholder="Agency or Store" allowClear style={{ width: 180 }} />
+                        <Form.Item name="agency_name" label="Agency">
+                            <Input placeholder="Agency" allowClear style={{ width: 120 }} />
+                        </Form.Item>
+                        <Form.Item name="store_name" label="Store">
+                            <Input placeholder="Store" allowClear style={{ width: 120 }} />
                         </Form.Item>
                         <Form.Item>
                             <Button type="primary" htmlType="submit">Apply</Button>
@@ -331,23 +402,21 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                     </Form>
                 </Collapse.Panel>
             </Collapse>
-            <Form form={form} component={false}>
-                {!isAdding && !isReadOnly ? (
-                    <Button onClick={handleAddClick} type="primary" style={{ marginBottom: 16 }}>Add a row</Button>
-                ) : null}
-                {isAdding && !isReadOnly && renderNewRowForm()}
-                <Table
-                    components={{ body: { cell: EditableCell } }}
-                    bordered
-                    dataSource={Array.isArray(logs) ? logs : []}
-                    columns={mergedColumns}
-                    rowClassName="editable-row"
-                    pagination={{ onChange: cancel }}
-                    loading={loading}
-                    rowKey="id"
-                />
-            </Form>
-        </>
+            {!isAdding && !isReadOnly ? (
+                <Button onClick={handleAddClick} type="primary" style={{ marginBottom: 16 }}>Add a row</Button>
+            ) : null}
+            {isAdding && !isReadOnly && renderNewRowForm()}
+            <Table
+                components={{ body: { cell: (props: any) => <EditableCell {...props} colorCodePairs={colorCodePairs} form={form} /> } }}
+                bordered
+                dataSource={Array.isArray(logs) ? logs : []}
+                columns={mergedColumns}
+                rowClassName="editable-row"
+                pagination={{ onChange: cancel }}
+                loading={loading}
+                rowKey="id"
+            />
+        </Form>
     );
 };
 

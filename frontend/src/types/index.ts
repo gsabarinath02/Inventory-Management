@@ -46,16 +46,13 @@ export interface InwardLog {
     id: number;
     product_id: number;
     date?: string;
-    quantity: number;
-    unit_cost: number;
-    size?: string;
     color?: string;
-    color_name?: string;
     colour_code?: number;
     category?: string;
-    supplier?: string;
-    notes?: string;
-    created_at: string;
+    stakeholder_name?: string;
+    sizes: Record<string, number>;
+    operation: string;
+    created_at?: string;
 }
 
 // Sales types
@@ -63,16 +60,13 @@ export interface SalesLog {
     id: number;
     product_id: number;
     date?: string;
-    quantity: number;
-    unit_price: number;
-    size?: string;
     color?: string;
-    color_name?: string;
     colour_code?: number;
-    category?: string;
-    customer?: string;
-    notes?: string;
-    created_at: string;
+    agency_name?: string;
+    store_name?: string;
+    sizes: Record<string, number>;
+    operation: string;
+    created_at?: string;
 }
 
 // Form types

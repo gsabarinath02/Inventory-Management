@@ -10,11 +10,11 @@ class InwardLogBase(BaseModel):
     product_id: int
     color: str
     colour_code: int
-    size: str
-    quantity: int
+    sizes: dict[str, int]  # e.g., {"S": 10, "M": 5, ...}
     date: date
     category: InwardCategory = InwardCategory.SUPPLY
     stakeholder_name: str | None = None
+    operation: str  # 'Inward' or 'Sale'
 
 class InwardLogCreate(InwardLogBase):
     pass

@@ -48,42 +48,49 @@ async def get_stock_by_product_and_color(db: AsyncSession, product_id: int, colo
     if colour_code is not None:
         statement = statement.filter(ProductColorStock.colour_code == colour_code)
     result = await db.execute(statement)
-    return result.scalar_one_or_none()
+    return result.scalars().all()
 
 async def update_stock_from_log(db: AsyncSession, log: InwardLog | SalesLog, operation: str, colour_code: int | None = None):
     """
-    Updates the total stock for a given product and color based on an inward or sales log.
-    
+    Updates the total stock for a given product and color based on an inward or sales log with sizes mapping.
+    For each size in log.sizes, update the stock accordingly.
     :param db: The database session.
     :param log: The InwardLog or SalesLog instance.
     :param operation: 'CREATE' or 'DELETE'.
     """
-    quantity_change = 0
-    
-    if isinstance(log, InwardLog):
-        if log.category == InwardCategory.SUPPLY:
-            quantity_change = log.quantity
-        else: # RETURN
-            quantity_change = -log.quantity
-    elif isinstance(log, SalesLog):
-        quantity_change = -log.quantity
-
-    if operation == 'DELETE':
-        quantity_change = -quantity_change
-
-    stock_entry = await get_stock_by_product_and_color(db, log.product_id, log.color, colour_code)
-    
-    if stock_entry:
-        stock_entry.total_stock += quantity_change
-    else:
-        stock_entry = ProductColorStock(
-            product_id=log.product_id,
-            color=log.color,
-            total_stock=quantity_change,
-            colour_code=colour_code
-        )
-        db.add(stock_entry)
-        
+    if not hasattr(log, 'sizes') or not isinstance(log.sizes, dict):
+        return
+    for size, qty in log.sizes.items():
+        # Determine the sign of the quantity change
+        if isinstance(log, InwardLog):
+            if hasattr(log, 'category') and getattr(log, 'category', None) == InwardCategory.SUPPLY:
+                quantity_change = qty
+            else:
+                quantity_change = -qty
+        elif isinstance(log, SalesLog):
+            quantity_change = -qty
+        else:
+            continue
+        if operation == 'DELETE':
+            quantity_change = -quantity_change
+        # Stock is tracked per product/color/size/colour_code
+        stock_entries = await get_stock_by_product_and_color(db, log.product_id, log.color, colour_code)
+        if stock_entries:
+            # Update the first entry (or you could distribute across all, or always create new)
+            stock_entry = stock_entries[0]
+            if not hasattr(stock_entry, 'sizes') or not isinstance(stock_entry.sizes, dict):
+                stock_entry.sizes = {}
+            stock_entry.sizes[size] = stock_entry.sizes.get(size, 0) + quantity_change
+            db.add(stock_entry)
+        else:
+            # Create a new record with sizes dict
+            stock_entry = ProductColorStock(
+                product_id=log.product_id,
+                color=log.color,
+                sizes={size: quantity_change},
+                colour_code=colour_code
+            )
+            db.add(stock_entry)
     await db.commit()
 
 # Alias for clarity from old code

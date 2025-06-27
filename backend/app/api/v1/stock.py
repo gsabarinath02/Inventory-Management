@@ -35,19 +35,23 @@ async def get_stock_matrix(
         stock_matrix = {color['color']: {size: 0 for size in product.sizes} for color in product.colors}
 
         for log in inward_logs:
-            if log.color in stock_matrix and log.size in stock_matrix[log.color]:
-                if log.category == 'Supply':
-                    stock_matrix[log.color][log.size] += log.quantity
-                elif log.category == 'Return':
-                    stock_matrix[log.color][log.size] -= log.quantity
+            if log.color in stock_matrix and hasattr(log, 'sizes') and isinstance(log.sizes, dict):
+                for size, qty in log.sizes.items():
+                    if size in stock_matrix[log.color]:
+                        if log.category == 'Supply':
+                            stock_matrix[log.color][size] += qty
+                        elif log.category == 'Return':
+                            stock_matrix[log.color][size] -= qty
 
         for log in sales_logs:
-            if log.color in stock_matrix and log.size in stock_matrix[log.color]:
-                stock_matrix[log.color][log.size] -= log.quantity
+            if log.color in stock_matrix and hasattr(log, 'sizes') and isinstance(log.sizes, dict):
+                for size, qty in log.sizes.items():
+                    if size in stock_matrix[log.color]:
+                        stock_matrix[log.color][size] -= qty
         
         # Calculate totals for each color
         for color, sizes in stock_matrix.items():
-            total = sum(sizes.values())
+            total = sum(s for s in sizes.values() if isinstance(s, (int, float)))
             stock_matrix[color]['total'] = total
 
         return stock_matrix

@@ -9,7 +9,7 @@ export const useSalesLogs = (productId: number | null) => {
     const [error, setError] = useState<string | null>(null);
 
     const fetchLogs = useCallback(async (customFilters?: Record<string, any>) => {
-        if (!productId) return;
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         setLoading(true);
         setError(null);
         try {
@@ -23,8 +23,8 @@ export const useSalesLogs = (productId: number | null) => {
         }
     }, [productId]);
 
-    const createLog = async (log: SalesLog) => {
-        if (!productId) return;
+    const createLog = async (log: Partial<SalesLog>) => {
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         try {
             await salesAPI.create(log);
             showSuccess('Log created successfully.');
@@ -34,7 +34,8 @@ export const useSalesLogs = (productId: number | null) => {
         }
     };
 
-    const updateLog = async (id: number, log: SalesLog) => {
+    const updateLog = async (id: number, log: Partial<SalesLog>) => {
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         try {
             await salesAPI.update(id, log);
             showSuccess('Log updated successfully.');
@@ -45,6 +46,7 @@ export const useSalesLogs = (productId: number | null) => {
     };
 
     const deleteLog = async (id: number) => {
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         try {
             await salesAPI.delete(id);
             showSuccess('Log deleted successfully.');

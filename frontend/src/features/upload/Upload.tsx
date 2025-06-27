@@ -54,7 +54,7 @@ const Upload: React.FC = () => {
                 </Select>
             </div>
 
-            {selectedProduct && Array.isArray(selectedProduct.colors) && Array.isArray(selectedProduct.sizes) && (
+            {selectedProduct && typeof selectedProduct.id === 'number' && Array.isArray(selectedProduct.colors) && Array.isArray(selectedProduct.sizes) && (
                 <>
                     <Divider />
                     <Radio.Group onChange={handleLogTypeChange} value={selectedLogType} style={{ marginBottom: 16 }}>

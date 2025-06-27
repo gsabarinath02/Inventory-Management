@@ -12,7 +12,8 @@ async def test_create_and_list_products(async_client: AsyncClient, auth_token):
             {"color": "Red", "colour_code": 101},
             {"color": "Blue", "colour_code": 102}
         ]},
-        headers=headers
+        headers=headers,
+        timeout=10
     )
     assert response.status_code == 201
     created_product = response.json()
@@ -21,7 +22,7 @@ async def test_create_and_list_products(async_client: AsyncClient, auth_token):
     product_id = created_product["id"]
 
     # List products to verify creation
-    response = await async_client.get("/api/v1/products/", headers=headers)
+    response = await async_client.get("/api/v1/products/", headers=headers, timeout=10)
     assert response.status_code == 200
     product_list = response.json()
     assert isinstance(product_list, list)
@@ -42,7 +43,8 @@ async def test_delete_product_with_cascade(async_client: AsyncClient, auth_token
         json={"name": "Test Product", "sku": "TP001", "unit_price": 25.00, "sizes": ["M"], "colors": [
             {"color": "Green", "colour_code": 103}
         ]},
-        headers=headers
+        headers=headers,
+        timeout=10
     )
     assert response.status_code == 201
     product_id = response.json()["id"]
@@ -54,25 +56,26 @@ async def test_delete_product_with_cascade(async_client: AsyncClient, auth_token
             "product_id": product_id,
             "color": "Green",
             "colour_code": 103,
-            "size": "M",
-            "quantity": 10,
+            "sizes": {"M": 10},
             "date": str(date.today()),
             "category": "Supply",
-            "stakeholder_name": "Supplier A"
+            "stakeholder_name": "Supplier A",
+            "operation": "Inward"
         },
-        headers=headers
+        headers=headers,
+        timeout=10
     )
     assert response.status_code == 201
 
     # Delete the product
-    response = await async_client.delete(f"/api/v1/products/{product_id}", headers=headers)
-    assert response.status_code == 200
+    response = await async_client.delete(f"/api/v1/products/{product_id}", headers=headers, timeout=10)
+    assert response.status_code == 204
 
     # Verify product is deleted
-    response = await async_client.get(f"/api/v1/products/{product_id}", headers=headers)
+    response = await async_client.get(f"/api/v1/products/{product_id}", headers=headers, timeout=10)
     assert response.status_code == 404
 
     # Verify related logs are also deleted (cascade delete)
-    response = await async_client.get(f"/api/v1/stock/{product_id}", headers=headers)
+    response = await async_client.get(f"/api/v1/stock/{product_id}", headers=headers, timeout=10)
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()

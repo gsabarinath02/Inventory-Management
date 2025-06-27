@@ -7,23 +7,20 @@ from typing import Optional
 from datetime import datetime
 
 def sa_obj_to_dict(obj):
-    """Safely convert SQLAlchemy object to dictionary without triggering lazy loading"""
     try:
-        # Manually extract known attributes to avoid lazy loading
         data = {
             "id": obj.id,
             "product_id": obj.product_id,
             "color": obj.color,
             "colour_code": obj.colour_code,
-            "size": obj.size,
-            "quantity": obj.quantity,
+            "sizes": obj.sizes,
             "date": obj.date,
             "agency_name": obj.agency_name,
-            "store_name": obj.store_name
+            "store_name": obj.store_name,
+            "operation": obj.operation
         }
         return data
     except Exception:
-        # Fallback: return a minimal dict with just the ID
         return {"id": getattr(obj, 'id', None)}
 
 async def get_sales_logs_by_product(db: AsyncSession, product_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None, stakeholder: Optional[str] = None):
@@ -39,34 +36,35 @@ async def get_sales_logs_by_product(db: AsyncSession, product_id: int, start_dat
     return [SalesLogSchema.model_validate(sa_obj_to_dict(log)) for log in logs]
 
 async def create_sales_log(db: AsyncSession, sales_log: SalesLogCreate):
-    db_sales_log = SalesLog(**sales_log.model_dump())
+    print("[SALES-LOG-DEBUG] Incoming payload:", sales_log.model_dump())
+    data = sales_log.model_dump()
+    data["sizes"] = dict(data.get("sizes") or {})  # Ensure plain dict, not None
+    db_sales_log = SalesLog(**data)
     db.add(db_sales_log)
     await db.commit()
     await db.refresh(db_sales_log)
-    
+    print("[SALES-LOG-DEBUG] Saved DB object:", sa_obj_to_dict(db_sales_log))
+    print("[SALES-LOG-DEBUG] Saved sizes:", db_sales_log.sizes)
     await crud_stock.update_stock_from_log(db, db_sales_log, "CREATE")
-    
     # Convert to dict immediately after refresh
     log_dict = sa_obj_to_dict(db_sales_log)
     return SalesLogSchema.model_validate(log_dict)
 
 async def update_sales_log(db: AsyncSession, log_id: int, sales_log: SalesLogUpdate):
+    print(f"[SALES-LOG-DEBUG] Update payload for log_id={log_id}:", sales_log.model_dump())
     result = await db.execute(select(SalesLog).filter(SalesLog.id == log_id))
     db_sales_log = result.scalar_one_or_none()
     if db_sales_log:
         await crud_stock.update_stock_from_log(db, db_sales_log, "DELETE")
-        
         update_data = sales_log.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_sales_log, key, value)
-        
         await db.flush()
-        
+        print(f"[SALES-LOG-DEBUG] DB object after update for log_id={log_id}:", sa_obj_to_dict(db_sales_log))
+        print(f"[SALES-LOG-DEBUG] Updated sizes for log_id={log_id}:", db_sales_log.sizes)
         await crud_stock.update_stock_from_log(db, db_sales_log, "CREATE")
-
         await db.commit()
         await db.refresh(db_sales_log)
-        
         # Convert to dict immediately after refresh
         log_dict = sa_obj_to_dict(db_sales_log)
         return SalesLogSchema.model_validate(log_dict)
@@ -78,10 +76,8 @@ async def delete_sales_log(db: AsyncSession, log_id: int):
     if db_sales_log:
         # Convert to dict before deletion
         log_dict = sa_obj_to_dict(db_sales_log)
-        
         await crud_stock.update_stock_from_log(db, db_sales_log, "DELETE")
         await db.delete(db_sales_log)
         await db.commit()
-        
         return SalesLogSchema.model_validate(log_dict)
     return None 

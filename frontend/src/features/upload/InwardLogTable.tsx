@@ -78,6 +78,7 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
     colorCodePairs,
     isReadOnly
 }) => {
+    if (typeof productId !== 'number' || isNaN(productId)) return null;
     const { logs, loading, createLog, updateLog, deleteLog, fetchLogs } = useInwardLogs(productId);
     const [form] = Form.useForm();
     const [editingKey, setEditingKey] = useState<React.Key>('');
@@ -96,13 +97,19 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         setEditingKey('');
     };
 
-    const save = async (key: React.Key) => {
+    const save = async (key: React.Key, row?: InwardLog) => {
         try {
-            const row = (await form.validateFields()) as InwardLog;
-            const newRow = { 
-                ...row, 
-                date: dayjs(row.date).format('YYYY-MM-DD'),
-                product_id: productId 
+            const values = row ? row : await form.validateFields();
+            // Remove any size_X fields from values
+            const cleanedValues = { ...values };
+            Object.keys(cleanedValues).forEach(k => {
+                if (k.startsWith('size_')) delete cleanedValues[k];
+            });
+            const newRow = {
+                ...cleanedValues,
+                date: dayjs(values.date).format('YYYY-MM-DD'),
+                product_id: productId,
+                operation: 'Inward',
             };
             
             if (key === 'new_row') {
@@ -123,12 +130,21 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         form.resetFields();
     };
 
-    let columns = [
+    // Dynamically add a column for each size
+    const sizeColumns = Array.isArray(availableSizes)
+        ? availableSizes.map(size => ({
+            title: size,
+            dataIndex: ['sizes', size],
+            editable: true,
+            render: (_: any, record: InwardLog) => (record.sizes && record.sizes[size]) || 0,
+        }))
+        : [];
+
+    // Only the static columns have inputType/options
+    const staticColumns = [
         { title: 'Date', dataIndex: 'date', editable: true, inputType: 'date' as const, render: (text: string) => dayjs(text).format('YYYY-MM-DD')},
         { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select' as const, options: availableColors },
         { title: 'Colour Code', dataIndex: 'colour_code', editable: true, inputType: 'number' as const, render: (code: number) => code !== undefined ? code : '' },
-        { title: 'Size', dataIndex: 'size', editable: true, inputType: 'select' as const, options: availableSizes },
-        { title: 'Quantity', dataIndex: 'quantity', editable: true, inputType: 'number' as const },
         { title: 'Category', dataIndex: 'category', editable: true, inputType: 'select' as const, options: ['Supply', 'Return'] },
         { title: 'Stakeholder', dataIndex: 'stakeholder_name', editable: true, inputType: 'text' as const },
         {
@@ -151,6 +167,16 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         },
     ];
 
+    let columns = [
+        staticColumns[0], // Date
+        staticColumns[1], // Color
+        staticColumns[2], // Colour Code
+        ...sizeColumns,
+        staticColumns[3], // Category
+        staticColumns[4], // Stakeholder
+        staticColumns[5], // Operation
+    ];
+
     if (isReadOnly) {
         columns = columns.filter(col => col.dataIndex !== 'operation');
     }
@@ -159,16 +185,28 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         if (!col.editable) {
             return col;
         }
+        // Only pass inputType/options if they exist on the column
         return {
             ...col,
-            onCell: (record: InwardLog) => ({
-                record,
-                inputType: col.inputType || 'text',
-                dataIndex: col.dataIndex,
-                title: col.title,
-                editing: isEditing(record),
-                options: col.options,
-            }),
+            onCell: (record: InwardLog) => {
+                const base = {
+                    record,
+                    dataIndex: col.dataIndex,
+                    title: col.title,
+                    editing: isEditing(record),
+                };
+                // Type guard for inputType
+                if (typeof (col as any).inputType !== 'undefined') {
+                    // @ts-ignore
+                    base.inputType = (col as any).inputType;
+                }
+                // Type guard for options
+                if (typeof (col as any).options !== 'undefined') {
+                    // @ts-ignore
+                    base.options = (col as any).options;
+                }
+                return base;
+            },
         };
     }) : [];
     
@@ -208,7 +246,27 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         };
 
         return (
-            <Form form={form} layout="inline" style={{ marginBottom: 16 }} onFinish={() => save('new_row')}>
+            <Form form={form} layout="inline" style={{ marginBottom: 16 }} onFinish={() => {
+                const values = form.getFieldsValue();
+                const sizes: Record<string, number> = {};
+                availableSizes.forEach(size => {
+                    const val = values[`size_${size}`];
+                    if (val !== undefined && val !== null && val !== '') sizes[size] = Number(val);
+                });
+                // Remove any size_X fields from values
+                const cleanedValues = { ...values };
+                Object.keys(cleanedValues).forEach(k => {
+                    if (k.startsWith('size_')) delete cleanedValues[k];
+                });
+                const newRow = {
+                    ...cleanedValues,
+                    sizes,
+                    date: dayjs(values.date).format('YYYY-MM-DD'),
+                    product_id: productId,
+                    operation: 'Inward',
+                };
+                save('new_row', newRow);
+            }}>
                 <Form.Item name="date" rules={[{ required: true }]}><DatePicker format="YYYY-MM-DD"/></Form.Item>
                 <Form.Item name="color" rules={[{ required: true }]}>
                     <Select
@@ -228,8 +286,11 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                         value={codeValue}
                     />
                 </Form.Item>
-                <Form.Item name="size" label="Size" style={{marginBottom:0}}><Select style={{width: 120}} options={Array.isArray(availableSizes) ? availableSizes.map(s => ({label: s, value: s})) : []} /></Form.Item>
-                <Form.Item name="quantity" rules={[{ required: true }]}><InputNumber placeholder="Qty" min={1}/></Form.Item>
+                {availableSizes.map(size => (
+                    <Form.Item key={size} name={`size_${size}`} label={size} style={{marginBottom:0}}>
+                        <InputNumber placeholder={size} min={0} />
+                    </Form.Item>
+                ))}
                 <Form.Item name="category" initialValue="Supply" rules={[{ required: true }]}> 
                     <Select style={{width: 120}}>
                         <Option value="Supply">Supply</Option>
