@@ -1,4 +1,5 @@
 import { message } from 'antd';
+import dayjs from 'dayjs';
 
 // Date formatting utilities
 export const formatDate = (dateString: string): string => {
@@ -22,8 +23,16 @@ export const showError = (error: any, defaultMessage: string = 'An error occurre
   message.error(errorMessage);
 };
 
-export const showSuccess = (messageText: string): void => {
-  message.success(messageText);
+export const showSuccess = (msg: string) => {
+  message.success(msg);
+};
+
+export const showWarning = (msg: string) => {
+  message.warning(msg);
+};
+
+export const showInfo = (msg: string) => {
+  message.info(msg);
 };
 
 // Data transformation utilities
@@ -241,4 +250,137 @@ export const getColor = (color: string | { color: string }): string => {
   }
 
   return 'blue'; // Default color if not found
+};
+
+export interface ParsedExcelRow {
+  date: string;
+  color: string;
+  colour_code: number;
+  sizes: Record<string, number>;
+  category?: string;
+  stakeholder_name?: string;
+  agency_name?: string;
+  store_name?: string;
+}
+
+export interface ExcelParseResult {
+  success: boolean;
+  data?: ParsedExcelRow[];
+  error?: string;
+}
+
+export const parseExcelData = (
+  excelText: string, 
+  availableSizes: string[], 
+  isInward: boolean = true
+): ExcelParseResult => {
+  try {
+    const lines = excelText.trim().split('\n');
+    if (lines.length === 0) {
+      return { success: false, error: 'No data provided' };
+    }
+
+    const parsedRows: ParsedExcelRow[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const columns = line.split('\t');
+      
+      // Expected columns: Date, Color, Colour Code, S, M, L, XL, ..., Category, Stakeholder/Store
+      const expectedColumns = 3 + availableSizes.length + 2; // Date, Color, Code, Sizes, Category, Stakeholder
+      
+      if (columns.length < expectedColumns) {
+        return { 
+          success: false, 
+          error: `Row ${i + 1}: Expected ${expectedColumns} columns, got ${columns.length}` 
+        };
+      }
+      
+      // Parse date
+      const dateStr = columns[0].trim();
+      if (!dayjs(dateStr, 'YYYY-MM-DD', true).isValid()) {
+        return { 
+          success: false, 
+          error: `Row ${i + 1}: Invalid date format. Use YYYY-MM-DD` 
+        };
+      }
+      
+      // Parse color
+      const color = columns[1].trim();
+      if (!color) {
+        return { 
+          success: false, 
+          error: `Row ${i + 1}: Color is required` 
+        };
+      }
+      
+      // Parse colour code
+      const colourCode = parseInt(columns[2].trim());
+      if (isNaN(colourCode)) {
+        return { 
+          success: false, 
+          error: `Row ${i + 1}: Invalid colour code` 
+        };
+      }
+      
+      // Parse sizes
+      const sizes: Record<string, number> = {};
+      for (let j = 0; j < availableSizes.length; j++) {
+        const sizeValue = parseInt(columns[3 + j].trim() || '0');
+        if (isNaN(sizeValue) || sizeValue < 0) {
+          return { 
+            success: false, 
+            error: `Row ${i + 1}: Invalid size value for ${availableSizes[j]}` 
+          };
+        }
+        if (sizeValue > 0) {
+          sizes[availableSizes[j]] = sizeValue;
+        }
+      }
+      
+      // Check if at least one size has quantity > 0
+      if (Object.keys(sizes).length === 0) {
+        return { 
+          success: false, 
+          error: `Row ${i + 1}: At least one size must have quantity > 0` 
+        };
+      }
+      
+      // Parse category (for inward) or agency/store (for sales)
+      const categoryIndex = 3 + availableSizes.length;
+      const stakeholderIndex = categoryIndex + 1;
+      
+      const row: ParsedExcelRow = {
+        date: dateStr,
+        color,
+        colour_code: colourCode,
+        sizes,
+      };
+      
+      if (isInward) {
+        // For inward logs: Category, Stakeholder
+        row.category = columns[categoryIndex]?.trim() || 'Supply';
+        row.stakeholder_name = columns[stakeholderIndex]?.trim() || '';
+      } else {
+        // For sales logs: Agency, Store
+        row.agency_name = columns[categoryIndex]?.trim() || '';
+        row.store_name = columns[stakeholderIndex]?.trim() || '';
+      }
+      
+      parsedRows.push(row);
+    }
+    
+    if (parsedRows.length === 0) {
+      return { success: false, error: 'No valid rows found' };
+    }
+    
+    return { success: true, data: parsedRows };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: `Failed to parse Excel data: ${error instanceof Error ? error.message : 'Unknown error'}` 
+    };
+  }
 }; 

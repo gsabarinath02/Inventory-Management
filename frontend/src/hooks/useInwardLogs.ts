@@ -34,6 +34,28 @@ export const useInwardLogs = (productId: number | null) => {
         }
     };
 
+    const createLogsBulk = async (logs: Partial<InwardLog>[]) => {
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
+        try {
+            await inwardAPI.createBulk(logs);
+            showSuccess(`${logs.length} logs created successfully.`);
+            fetchLogs();
+        } catch (err) {
+            showError('Failed to create logs in bulk.');
+        }
+    };
+
+    const deleteLogsBulk = async (date?: string, stakeholder_name?: string) => {
+        if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
+        try {
+            await inwardAPI.deleteBulk(productId, date, stakeholder_name);
+            showSuccess('Logs deleted successfully.');
+            fetchLogs();
+        } catch (err) {
+            showError('Failed to delete logs in bulk.');
+        }
+    };
+
     const updateLog = async (id: number, log: Partial<InwardLog>) => {
         if (!productId || typeof productId !== 'number' || isNaN(productId)) return;
         try {
@@ -60,5 +82,5 @@ export const useInwardLogs = (productId: number | null) => {
         fetchLogs();
     }, [fetchLogs]);
 
-    return { logs, loading, error, fetchLogs, createLog, updateLog, deleteLog };
+    return { logs, loading, error, fetchLogs, createLog, createLogsBulk, deleteLogsBulk, updateLog, deleteLog };
 }; 

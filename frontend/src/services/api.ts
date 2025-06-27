@@ -66,8 +66,13 @@ export const uploadAPI = {
 export const inwardAPI = {
   getAll: (productId: number, filters?: Record<string, any>) => api.get<InwardLog[]>(`${API_ENDPOINTS.INWARD}/${productId}`, { params: filters }),
   create: (data: Partial<InwardLog>) => api.post<InwardLog>(API_ENDPOINTS.INWARD, data),
+  createBulk: (data: Partial<InwardLog>[]) => api.post<InwardLog[]>(`${API_ENDPOINTS.INWARD}/bulk-create`, data),
   update: (logId: number, data: Partial<InwardLog>) => api.put<InwardLog>(`${API_ENDPOINTS.INWARD}/${logId}`, data),
   delete: (logId: number) => api.delete(`${API_ENDPOINTS.INWARD}/${logId}`),
+  deleteBulk: (productId: number, date?: string, stakeholder_name?: string) => 
+    api.delete(`${API_ENDPOINTS.INWARD}/bulk-delete`, { 
+      params: { product_id: productId, date, stakeholder_name } 
+    }),
 };
 
 export const salesAPI = {
@@ -76,8 +81,13 @@ export const salesAPI = {
     console.log('[SALES-API] POST', API_ENDPOINTS.SALES, data);
     return api.post<SalesLog>(API_ENDPOINTS.SALES, data);
   },
+  createBulk: (data: Partial<SalesLog>[]) => api.post<SalesLog[]>(`${API_ENDPOINTS.SALES}/bulk-create`, data),
   update: (logId: number, data: Partial<SalesLog>) => api.put<SalesLog>(`${API_ENDPOINTS.SALES}/${logId}`, data),
   delete: (logId: number) => api.delete(`${API_ENDPOINTS.SALES}/${logId}`),
+  deleteBulk: (productId: number, date?: string, store_name?: string) => 
+    api.delete(`${API_ENDPOINTS.SALES}/bulk-delete`, { 
+      params: { product_id: productId, date, store_name } 
+    }),
 };
 
 export const getUsers = async () => {

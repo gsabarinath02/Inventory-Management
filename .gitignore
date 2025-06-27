@@ -1,1 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# FastAPI/Backend
+backend/.env
+backend/.env.*
+backend/alembic/versions/*.pyc
+backend/alembic/versions/__pycache__/
+backend/test.db
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.coverage
+backend/coverage.xml
+backend/htmlcov/
+backend/.vscode/
+backend/.idea/
+backend/.DS_Store
+
+# Node/React/Frontend
+frontend/node_modules/
+frontend/.env
+frontend/.env.*
+frontend/dist/
+frontend/build/
+frontend/coverage/
+frontend/coverage*
+frontend/.next/
+frontend/.turbo/
+frontend/.vscode/
+frontend/.idea/
+frontend/.DS_Store
+
+# Docker
+**/tmp/
+**/logs/
+**/.docker/
+**/docker-compose.override.yml
+
+# System
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Database
+*.sqlite3
+*.db
+*.db-journal
+
+# Misc
+*.log
+*.bak
+*.tmp
+*.orig
+
+# Test output
+**/test-results/
+**/coverage/
+**/lcov*
+
+# Ignore local env and secrets
+.env
+.env.*
+secrets.*
 node_modules

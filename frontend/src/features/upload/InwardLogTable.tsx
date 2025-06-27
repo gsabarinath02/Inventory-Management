@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse } from 'antd';
+import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, Modal, message } from 'antd';
 import dayjs from 'dayjs';
 import { InwardLog } from '../../types';
 import { useInwardLogs } from '../../hooks/useInwardLogs';
+import { parseExcelData, ParsedExcelRow } from '../../utils';
 
 const { Option } = Select;
+const { TextArea } = Input;
 
 interface EditableCellProps {
   editing: boolean;
@@ -79,11 +81,17 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
     isReadOnly
 }) => {
     if (typeof productId !== 'number' || isNaN(productId)) return null;
-    const { logs, loading, createLog, updateLog, deleteLog, fetchLogs } = useInwardLogs(productId);
+    const { logs, loading, createLog, createLogsBulk, deleteLogsBulk, updateLog, deleteLog, fetchLogs } = useInwardLogs(productId);
     const [form] = Form.useForm();
     const [editingKey, setEditingKey] = useState<React.Key>('');
     const [isAdding, setIsAdding] = useState(false);
     const [filterForm] = Form.useForm();
+    
+    // New state for bulk operations
+    const [excelText, setExcelText] = useState('');
+    const [parsedRows, setParsedRows] = useState<ParsedExcelRow[]>([]);
+    const [showParsedRows, setShowParsedRows] = useState(false);
+    const [overwriteModalVisible, setOverwriteModalVisible] = useState(false);
 
     const isEditing = (record: InwardLog) => record.id === editingKey;
 
@@ -128,6 +136,90 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
     const handleAddClick = () => {
         setIsAdding(true);
         form.resetFields();
+    };
+
+    // Bulk paste functions
+    const handleBulkPasteLoad = () => {
+        if (!excelText.trim()) {
+            message.error('Please paste Excel data first');
+            return;
+        }
+
+        const result = parseExcelData(excelText, availableSizes, true);
+        if (!result.success) {
+            message.error(result.error || 'Failed to parse Excel data');
+            return;
+        }
+
+        // Color/Colour Code validation
+        const invalidRows: string[] = [];
+        (result.data || []).forEach((row, idx) => {
+            const found = colorCodePairs.some(
+                pair => pair.color === row.color && pair.colour_code === row.colour_code
+            );
+            if (!found) {
+                invalidRows.push(
+                    `Row ${idx + 1}: Color "${row.color}" with Colour Code "${row.colour_code}" does not match any defined color-code pair.`
+                );
+            }
+        });
+        if (invalidRows.length > 0) {
+            message.warning(
+                <div>
+                    <b>Color/Code mismatch:</b>
+                    <ul style={{margin:0, paddingLeft:20}}>
+                        {invalidRows.map((msg, i) => <li key={i}>{msg}</li>)}
+                    </ul>
+                </div>,
+                8
+            );
+            return;
+        }
+
+        setParsedRows(result.data || []);
+        setShowParsedRows(true);
+        message.success(`Successfully parsed ${result.data?.length} rows`);
+    };
+
+    const handleOverwrite = async () => {
+        if (parsedRows.length === 0) {
+            message.error('No parsed rows to overwrite');
+            return;
+        }
+
+        try {
+            // Convert parsed rows to InwardLog format
+            const logsToCreate = parsedRows.map(row => ({
+                ...row,
+                product_id: productId,
+                operation: 'Inward',
+            }));
+
+            // Delete existing logs for the same dates and stakeholders
+            const uniqueDates = [...new Set(parsedRows.map(row => row.date))];
+            const uniqueStakeholders = [...new Set(parsedRows.map(row => row.stakeholder_name).filter(Boolean))];
+
+            for (const date of uniqueDates) {
+                for (const stakeholder of uniqueStakeholders) {
+                    if (stakeholder) {
+                        await deleteLogsBulk(date, stakeholder);
+                    }
+                }
+            }
+
+            // Create new logs
+            await createLogsBulk(logsToCreate);
+
+            // Reset state
+            setExcelText('');
+            setParsedRows([]);
+            setShowParsedRows(false);
+            setOverwriteModalVisible(false);
+            
+            message.success('Successfully overwrote inward logs');
+        } catch (error) {
+            message.error('Failed to overwrite logs');
+        }
     };
 
     // Dynamically add a column for each size
@@ -306,21 +398,98 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         );
     };
 
+    // Render parsed rows for preview
+    const renderParsedRows = () => {
+        if (!showParsedRows || parsedRows.length === 0) return null;
+
+        const previewColumns = [
+            { title: 'Date', dataIndex: 'date', key: 'date' },
+            { title: 'Color', dataIndex: 'color', key: 'color' },
+            { title: 'Colour Code', dataIndex: 'colour_code', key: 'colour_code' },
+            ...availableSizes.map(size => ({
+                title: size,
+                dataIndex: 'sizes',
+                key: size,
+                render: (sizes: Record<string, number>) => sizes[size] || 0
+            })),
+            { title: 'Category', dataIndex: 'category', key: 'category' },
+            { title: 'Stakeholder', dataIndex: 'stakeholder_name', key: 'stakeholder_name' },
+        ];
+
+        return (
+            <div style={{ marginBottom: 16 }}>
+                <h4>Loaded Rows ({parsedRows.length})</h4>
+                <Table
+                    dataSource={parsedRows}
+                    columns={previewColumns}
+                    pagination={false}
+                    size="small"
+                    bordered
+                />
+            </div>
+        );
+    };
+
     return (
         <Form form={form} component={false}>
+            {/* Bulk Paste Panel */}
+            <Collapse style={{ marginBottom: 16 }}>
+                <Collapse.Panel header="Bulk Paste from Excel" key="bulk-paste">
+                    <div style={{ marginBottom: 16 }}>
+                        <TextArea
+                            placeholder="Paste your Excel cells here (tab-delimited)"
+                            rows={4}
+                            value={excelText}
+                            onChange={(e) => setExcelText(e.target.value)}
+                            style={{ marginBottom: 8 }}
+                        />
+                        <Space>
+                            <Button type="primary" onClick={handleBulkPasteLoad}>
+                                Load
+                            </Button>
+                            <Button 
+                                type="default" 
+                                onClick={() => setOverwriteModalVisible(true)}
+                                disabled={!showParsedRows || parsedRows.length === 0}
+                            >
+                                Overwrite
+                            </Button>
+                            <Button onClick={() => {
+                                setExcelText('');
+                                setParsedRows([]);
+                                setShowParsedRows(false);
+                            }}>
+                                Clear
+                            </Button>
+                        </Space>
+                    </div>
+                    {renderParsedRows()}
+                </Collapse.Panel>
+            </Collapse>
+
+            {/* Filter Panel */}
             <Collapse style={{ marginBottom: 16 }}>
                 <Collapse.Panel header="Filter" key="1">
                     <Form
                         form={filterForm}
                         layout="inline"
                         onFinish={(values) => {
-                            const { dateRange, stakeholder } = values;
+                            const { dateRange, stakeholder, date, stakeholder_name } = values;
                             const filterParams: Record<string, any> = {};
-                            if (dateRange && dateRange.length === 2) {
-                                filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
-                                filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
+                            
+                            // Quick retrieval by date and name
+                            if (date && stakeholder_name) {
+                                filterParams.date = dayjs(date).format('YYYY-MM-DD');
+                                filterParams.stakeholder_name = stakeholder_name;
+                            } else {
+                                // Regular date range and stakeholder filter
+                                if (dateRange && dateRange.length === 2) {
+                                    filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
+                                    filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
+                                }
+                                if (stakeholder) filterParams.stakeholder = stakeholder;
                             }
-                            if (stakeholder) filterParams.stakeholder = stakeholder;
+                            
                             fetchLogs(filterParams);
                         }}
                         style={{ marginBottom: 8 }}
@@ -331,6 +500,12 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                         <Form.Item name="stakeholder" label="Stakeholder">
                             <Input placeholder="Stakeholder" allowClear style={{ width: 180 }} />
                         </Form.Item>
+                        <Form.Item name="date" label="Quick Date">
+                            <DatePicker format="YYYY-MM-DD" />
+                        </Form.Item>
+                        <Form.Item name="stakeholder_name" label="Store / Supplier">
+                            <Input placeholder="Store / Supplier" allowClear style={{ width: 180 }} />
+                        </Form.Item>
                         <Form.Item>
                             <Button type="primary" htmlType="submit">Apply</Button>
                         </Form.Item>
@@ -340,6 +515,7 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                     </Form>
                 </Collapse.Panel>
             </Collapse>
+            
             {!isAdding && !isReadOnly ? (
                 <Button onClick={handleAddClick} type="primary" style={{ marginBottom: 16 }}>Add a row</Button>
             ) : null}
@@ -354,6 +530,21 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                 loading={loading}
                 rowKey="id"
             />
+
+            {/* Overwrite Confirmation Modal */}
+            <Modal
+                title="Confirm Overwrite"
+                open={overwriteModalVisible}
+                onOk={handleOverwrite}
+                onCancel={() => setOverwriteModalVisible(false)}
+                okText="Proceed"
+                cancelText="Cancel"
+            >
+                <p>
+                    You are about to replace all existing entries for this product in the Inward log with the rows you just loaded. 
+                    This action cannot be undone. Proceed?
+                </p>
+            </Modal>
         </Form>
     );
 };

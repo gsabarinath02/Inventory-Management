@@ -1,9 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from ...models.sales import SalesLog
 from ...schemas.sales import SalesLogCreate, SalesLogUpdate, SalesLog as SalesLogSchema
 from . import product_color_stock as crud_stock
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 def sa_obj_to_dict(obj):
@@ -35,6 +35,20 @@ async def get_sales_logs_by_product(db: AsyncSession, product_id: int, start_dat
     logs = result.scalars().all()
     return [SalesLogSchema.model_validate(sa_obj_to_dict(log)) for log in logs]
 
+async def get_last_sales_log_by_date_and_store(db: AsyncSession, product_id: int, date: str, store_name: str):
+    """Get the last (most recent) sales log entry for a specific date and store"""
+    query = select(SalesLog).filter(
+        SalesLog.product_id == product_id,
+        SalesLog.date == datetime.strptime(date, '%Y-%m-%d').date(),
+        SalesLog.store_name.ilike(f'%{store_name}%')
+    ).order_by(SalesLog.created_at.desc()).limit(1)
+    
+    result = await db.execute(query)
+    log = result.scalar_one_or_none()
+    if log:
+        return [SalesLogSchema.model_validate(sa_obj_to_dict(log))]
+    return []
+
 async def create_sales_log(db: AsyncSession, sales_log: SalesLogCreate):
     print("[SALES-LOG-DEBUG] Incoming payload:", sales_log.model_dump())
     data = sales_log.model_dump()
@@ -49,6 +63,53 @@ async def create_sales_log(db: AsyncSession, sales_log: SalesLogCreate):
     # Convert to dict immediately after refresh
     log_dict = sa_obj_to_dict(db_sales_log)
     return SalesLogSchema.model_validate(log_dict)
+
+async def create_sales_logs_bulk(db: AsyncSession, sales_logs: List[SalesLogCreate]):
+    """Create multiple sales log entries in a single transaction"""
+    created_logs = []
+    for sales_log in sales_logs:
+        data = sales_log.model_dump()
+        data["sizes"] = dict(data.get("sizes") or {})  # Ensure plain dict, not None
+        db_sales_log = SalesLog(**data)
+        db.add(db_sales_log)
+        created_logs.append(db_sales_log)
+    
+    await db.commit()
+    
+    # Refresh all created logs and update stock
+    for db_sales_log in created_logs:
+        await db.refresh(db_sales_log)
+        await crud_stock.update_stock_from_log(db, db_sales_log, "CREATE")
+    
+    return [SalesLogSchema.model_validate(sa_obj_to_dict(log)) for log in created_logs]
+
+async def delete_sales_logs_bulk(db: AsyncSession, product_id: int, date: Optional[str] = None, store_name: Optional[str] = None):
+    """Delete multiple sales log entries based on criteria"""
+    # First, get the logs to be deleted for stock update
+    query = select(SalesLog).filter(SalesLog.product_id == product_id)
+    if date:
+        query = query.filter(SalesLog.date == datetime.strptime(date, '%Y-%m-%d').date())
+    if store_name:
+        query = query.filter(SalesLog.store_name.ilike(f'%{store_name}%'))
+    
+    result = await db.execute(query)
+    logs_to_delete = result.scalars().all()
+    
+    # Update stock for each log before deletion
+    for log in logs_to_delete:
+        await crud_stock.update_stock_from_log(db, log, "DELETE")
+    
+    # Delete the logs
+    delete_query = delete(SalesLog).filter(SalesLog.product_id == product_id)
+    if date:
+        delete_query = delete_query.filter(SalesLog.date == datetime.strptime(date, '%Y-%m-%d').date())
+    if store_name:
+        delete_query = delete_query.filter(SalesLog.store_name.ilike(f'%{store_name}%'))
+    
+    result = await db.execute(delete_query)
+    await db.commit()
+    
+    return len(logs_to_delete)
 
 async def update_sales_log(db: AsyncSession, log_id: int, sales_log: SalesLogUpdate):
     print(f"[SALES-LOG-DEBUG] Update payload for log_id={log_id}:", sales_log.model_dump())

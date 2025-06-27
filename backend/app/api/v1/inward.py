@@ -14,9 +14,15 @@ async def read_inward_logs(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
     stakeholder: Optional[str] = Query(None),
+    date: Optional[str] = Query(None),
+    stakeholder_name: Optional[str] = Query(None),
     db: AsyncSession = Depends(deps.get_db),
     current_user = Depends(get_current_user)
 ):
+    # If single date and stakeholder_name are provided, get the last matching entry
+    if date and stakeholder_name:
+        return await crud.get_last_inward_log_by_date_and_stakeholder(db, product_id=product_id, date=date, stakeholder_name=stakeholder_name)
+    
     return await crud.get_inward_logs_by_product(db, product_id=product_id, start_date=start_date, end_date=end_date, stakeholder=stakeholder)
 
 @router.post("/", response_model=InwardLog)
@@ -26,6 +32,25 @@ async def create_inward_log_entry(
     current_user = Depends(require_manager_or_admin)
 ):
     return await crud.create_inward_log(db=db, inward_log=inward_log)
+
+@router.post("/bulk-create", response_model=List[InwardLog])
+async def create_inward_logs_bulk(
+    inward_logs: List[InwardLogCreate], 
+    db: AsyncSession = Depends(deps.get_db),
+    current_user = Depends(require_manager_or_admin)
+):
+    return await crud.create_inward_logs_bulk(db=db, inward_logs=inward_logs)
+
+@router.delete("/bulk-delete")
+async def delete_inward_logs_bulk(
+    product_id: int,
+    date: Optional[str] = Query(None),
+    stakeholder_name: Optional[str] = Query(None),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user = Depends(require_manager_or_admin)
+):
+    deleted_count = await crud.delete_inward_logs_bulk(db=db, product_id=product_id, date=date, stakeholder_name=stakeholder_name)
+    return {"message": f"Deleted {deleted_count} inward log entries"}
 
 @router.put("/{log_id}", response_model=InwardLog)
 async def update_inward_log_entry(

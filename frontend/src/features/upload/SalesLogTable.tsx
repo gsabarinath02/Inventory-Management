@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, message } from 'antd';
+import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, Modal, message } from 'antd';
 import dayjs from 'dayjs';
 import { SalesLog } from '../../types';
 import { useSalesLogs } from '../../hooks/useSalesLogs';
+import { parseExcelData, ParsedExcelRow } from '../../utils';
+
+const { TextArea } = Input;
 
 interface EditableCellProps {
   editing: boolean;
@@ -132,11 +135,17 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     isReadOnly
 }) => {
     if (typeof productId !== 'number' || isNaN(productId)) return null;
-    const { logs, loading, createLog, updateLog, deleteLog, fetchLogs } = useSalesLogs(productId);
+    const { logs, loading, createLog, createLogsBulk, deleteLogsBulk, updateLog, deleteLog, fetchLogs } = useSalesLogs(productId);
     const [form] = Form.useForm();
     const [editingKey, setEditingKey] = useState<React.Key>('');
     const [isAdding, setIsAdding] = useState(false);
     const [filterForm] = Form.useForm();
+    
+    // New state for bulk operations
+    const [excelText, setExcelText] = useState('');
+    const [parsedRows, setParsedRows] = useState<ParsedExcelRow[]>([]);
+    const [showParsedRows, setShowParsedRows] = useState(false);
+    const [overwriteModalVisible, setOverwriteModalVisible] = useState(false);
 
     const isEditing = (record: SalesLog) => record.id === editingKey;
 
@@ -179,6 +188,90 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     const handleAddClick = () => {
         setIsAdding(true);
         form.resetFields();
+    };
+
+    // Bulk paste functions
+    const handleBulkPasteLoad = () => {
+        if (!excelText.trim()) {
+            message.error('Please paste Excel data first');
+            return;
+        }
+
+        const result = parseExcelData(excelText, availableSizes, false);
+        if (!result.success) {
+            message.error(result.error || 'Failed to parse Excel data');
+            return;
+        }
+
+        // Color/Colour Code validation
+        const invalidRows: string[] = [];
+        (result.data || []).forEach((row, idx) => {
+            const found = colorCodePairs.some(
+                pair => pair.color === row.color && pair.colour_code === row.colour_code
+            );
+            if (!found) {
+                invalidRows.push(
+                    `Row ${idx + 1}: Color "${row.color}" with Colour Code "${row.colour_code}" does not match any defined color-code pair.`
+                );
+            }
+        });
+        if (invalidRows.length > 0) {
+            message.warning(
+                <div>
+                    <b>Color/Code mismatch:</b>
+                    <ul style={{margin:0, paddingLeft:20}}>
+                        {invalidRows.map((msg, i) => <li key={i}>{msg}</li>)}
+                    </ul>
+                </div>,
+                8
+            );
+            return;
+        }
+
+        setParsedRows(result.data || []);
+        setShowParsedRows(true);
+        message.success(`Successfully parsed ${result.data?.length} rows`);
+    };
+
+    const handleOverwrite = async () => {
+        if (parsedRows.length === 0) {
+            message.error('No parsed rows to overwrite');
+            return;
+        }
+
+        try {
+            // Convert parsed rows to SalesLog format
+            const logsToCreate = parsedRows.map(row => ({
+                ...row,
+                product_id: productId,
+                operation: 'Sale',
+            }));
+
+            // Delete existing logs for the same dates and stores
+            const uniqueDates = [...new Set(parsedRows.map(row => row.date))];
+            const uniqueStores = [...new Set(parsedRows.map(row => row.store_name).filter(Boolean))];
+
+            for (const date of uniqueDates) {
+                for (const store of uniqueStores) {
+                    if (store) {
+                        await deleteLogsBulk(date, store);
+                    }
+                }
+            }
+
+            // Create new logs
+            await createLogsBulk(logsToCreate);
+
+            // Reset state
+            setExcelText('');
+            setParsedRows([]);
+            setShowParsedRows(false);
+            setOverwriteModalVisible(false);
+            
+            message.success('Successfully overwrote sales logs');
+        } catch (error) {
+            message.error('Failed to overwrite logs');
+        }
     };
 
     // Dynamically add a column for each size
@@ -364,22 +457,99 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         );
     };
 
+    // Render parsed rows for preview
+    const renderParsedRows = () => {
+        if (!showParsedRows || parsedRows.length === 0) return null;
+
+        const previewColumns = [
+            { title: 'Date', dataIndex: 'date', key: 'date' },
+            { title: 'Color', dataIndex: 'color', key: 'color' },
+            { title: 'Colour Code', dataIndex: 'colour_code', key: 'colour_code' },
+            ...availableSizes.map(size => ({
+                title: size,
+                dataIndex: 'sizes',
+                key: size,
+                render: (sizes: Record<string, number>) => sizes[size] || 0
+            })),
+            { title: 'Agency', dataIndex: 'agency_name', key: 'agency_name' },
+            { title: 'Store', dataIndex: 'store_name', key: 'store_name' },
+        ];
+
+        return (
+            <div style={{ marginBottom: 16 }}>
+                <h4>Loaded Rows ({parsedRows.length})</h4>
+                <Table
+                    dataSource={parsedRows}
+                    columns={previewColumns}
+                    pagination={false}
+                    size="small"
+                    bordered
+                />
+            </div>
+        );
+    };
+
     return (
         <Form form={form} component={false}>
+            {/* Bulk Paste Panel */}
+            <Collapse style={{ marginBottom: 16 }}>
+                <Collapse.Panel header="Bulk Paste from Excel" key="bulk-paste">
+                    <div style={{ marginBottom: 16 }}>
+                        <TextArea
+                            placeholder="Paste your Excel cells here (tab-delimited)"
+                            rows={4}
+                            value={excelText}
+                            onChange={(e) => setExcelText(e.target.value)}
+                            style={{ marginBottom: 8 }}
+                        />
+                        <Space>
+                            <Button type="primary" onClick={handleBulkPasteLoad}>
+                                Load
+                            </Button>
+                            <Button 
+                                type="default" 
+                                onClick={() => setOverwriteModalVisible(true)}
+                                disabled={!showParsedRows || parsedRows.length === 0}
+                            >
+                                Overwrite
+                            </Button>
+                            <Button onClick={() => {
+                                setExcelText('');
+                                setParsedRows([]);
+                                setShowParsedRows(false);
+                            }}>
+                                Clear
+                            </Button>
+                        </Space>
+                    </div>
+                    {renderParsedRows()}
+                </Collapse.Panel>
+            </Collapse>
+
+            {/* Filter Panel */}
             <Collapse style={{ marginBottom: 16 }}>
                 <Collapse.Panel header="Filter" key="1">
                     <Form
                         form={filterForm}
                         layout="inline"
                         onFinish={(values) => {
-                            const { dateRange, agency_name, store_name } = values;
+                            const { dateRange, agency_name, store_name, date, store_name_quick } = values;
                             const filterParams: Record<string, any> = {};
-                            if (dateRange && dateRange.length === 2) {
-                                filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
-                                filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
+                            
+                            // Quick retrieval by date and store name
+                            if (date && store_name_quick) {
+                                filterParams.date = dayjs(date).format('YYYY-MM-DD');
+                                filterParams.store_name = store_name_quick;
+                            } else {
+                                // Regular date range and agency/store filter
+                                if (dateRange && dateRange.length === 2) {
+                                    filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
+                                    filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
+                                }
+                                if (agency_name) filterParams.agency_name = agency_name;
+                                if (store_name) filterParams.store_name = store_name;
                             }
-                            if (agency_name) filterParams.agency_name = agency_name;
-                            if (store_name) filterParams.store_name = store_name;
+                            
                             fetchLogs(filterParams);
                         }}
                         style={{ marginBottom: 8 }}
@@ -393,6 +563,12 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         <Form.Item name="store_name" label="Store">
                             <Input placeholder="Store" allowClear style={{ width: 120 }} />
                         </Form.Item>
+                        <Form.Item name="date" label="Quick Date">
+                            <DatePicker format="YYYY-MM-DD" />
+                        </Form.Item>
+                        <Form.Item name="store_name_quick" label="Store / Supplier">
+                            <Input placeholder="Store / Supplier" allowClear style={{ width: 180 }} />
+                        </Form.Item>
                         <Form.Item>
                             <Button type="primary" htmlType="submit">Apply</Button>
                         </Form.Item>
@@ -402,6 +578,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                     </Form>
                 </Collapse.Panel>
             </Collapse>
+            
             {!isAdding && !isReadOnly ? (
                 <Button onClick={handleAddClick} type="primary" style={{ marginBottom: 16 }}>Add a row</Button>
             ) : null}
@@ -416,6 +593,21 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                 loading={loading}
                 rowKey="id"
             />
+
+            {/* Overwrite Confirmation Modal */}
+            <Modal
+                title="Confirm Overwrite"
+                open={overwriteModalVisible}
+                onOk={handleOverwrite}
+                onCancel={() => setOverwriteModalVisible(false)}
+                okText="Proceed"
+                cancelText="Cancel"
+            >
+                <p>
+                    You are about to replace all existing entries for this product in the Sales log with the rows you just loaded. 
+                    This action cannot be undone. Proceed?
+                </p>
+            </Modal>
         </Form>
     );
 };
