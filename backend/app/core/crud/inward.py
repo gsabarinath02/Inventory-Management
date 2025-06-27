@@ -131,4 +131,8 @@ async def delete_inward_log(db: AsyncSession, log_id: int):
         await db.delete(db_inward_log)
         await db.commit()
         return InwardLogSchema.model_validate(log_dict)
-    return None 
+    return None
+
+async def get_inward_log_by_id(db: AsyncSession, log_id: int):
+    result = await db.execute(select(InwardLog).filter(InwardLog.id == log_id))
+    return result.scalar_one_or_none() 

@@ -2,11 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from sqlalchemy.exc import IntegrityError
+import json
 
 from ...database import get_db
 from ...api.deps import require_admin
 from ...schemas.product import Product, ProductOut, ProductUpdate, ProductCreate
 from ...core.crud.product import create_product, get_products, get_product, update_product, delete_product
+from ...core.crud.audit_log import create_audit_log
+from ...schemas.audit_log import AuditLogCreate
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,7 +22,21 @@ async def create_new_product_route(
 ):
     logger.debug(f"Received payload for product creation: {payload}")
     try:
-        return await create_product(db=db, product=payload)
+        product = await create_product(db=db, product=payload)
+        await create_audit_log(
+            db,
+            AuditLogCreate(
+                user_id=0,  # Replace with real user context if available
+                username="system",
+                action="PRODUCT_CREATE",
+                entity="Product",
+                entity_id=product.id,
+                field_changed=None,
+                old_value=None,
+                new_value=json.dumps(product.__dict__)
+            )
+        )
+        return product
     except IntegrityError as e:
         if "ix_products_sku" in str(e.orig) or "unique constraint" in str(e.orig):
             raise HTTPException(status_code=400, detail="SKU already exists.")
@@ -65,9 +82,23 @@ async def update_existing_product_route(
     db: AsyncSession = Depends(get_db)
 ):
     try:
+        old_product = await get_product(db, product_id=product_id)
         updated_product = await update_product(db, product_id=product_id, product=product)
         if updated_product is None:
             raise HTTPException(status_code=404, detail="Product not found")
+        await create_audit_log(
+            db,
+            AuditLogCreate(
+                user_id=0,  # Replace with real user context if available
+                username="system",
+                action="PRODUCT_UPDATE",
+                entity="Product",
+                entity_id=product_id,
+                field_changed=None,
+                old_value=json.dumps(old_product.__dict__) if old_product else None,
+                new_value=json.dumps(updated_product.__dict__)
+            )
+        )
         return updated_product
     except HTTPException:
         raise
@@ -82,9 +113,23 @@ async def delete_existing_product_route(
     current_user = Depends(require_admin)
 ):
     try:
+        product = await get_product(db, product_id=product_id)
         success = await delete_product(db, product_id=product_id)
         if not success:
             raise HTTPException(status_code=404, detail="Product not found")
+        await create_audit_log(
+            db,
+            AuditLogCreate(
+                user_id=0,  # Replace with real user context if available
+                username="system",
+                action="PRODUCT_DELETE",
+                entity="Product",
+                entity_id=product_id,
+                field_changed=None,
+                old_value=json.dumps(product.__dict__) if product else None,
+                new_value=None
+            )
+        )
     except HTTPException:
         raise
     except Exception as e:

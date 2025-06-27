@@ -8,6 +8,9 @@ import enum
 from ... import models, schemas
 from ..logging_context import current_user_var
 
+# Add User and ProductColorStock to tracked models
+TRACKED_MODELS = (models.Product, models.InwardLog, models.SalesLog, models.User, models.ProductColorStock)
+
 def get_session(target_instance):
     """Gets the session from a target instance."""
     session = object_session(target_instance)
@@ -64,7 +67,7 @@ def setup_audit_logging():
 
         # Handle new objects
         for obj in session.new:
-            if isinstance(obj, (models.Product, models.InwardLog, models.SalesLog)):
+            if isinstance(obj, TRACKED_MODELS):
                 log_entry = schemas.AuditLogCreate(
                     user_id=user.id, username=user.email, action="CREATE",
                     entity=obj.__class__.__name__, entity_id=obj.id,
@@ -74,7 +77,7 @@ def setup_audit_logging():
 
         # Handle updated objects
         for obj in session.dirty:
-            if isinstance(obj, (models.Product, models.InwardLog, models.SalesLog)):
+            if isinstance(obj, TRACKED_MODELS):
                 for attr in obj.__mapper__.attrs:
                     history = get_history(obj, attr.key)
                     if history.has_changes():
@@ -100,7 +103,7 @@ def setup_audit_logging():
         
         # Handle deleted objects
         for obj in session.deleted:
-            if isinstance(obj, (models.Product, models.InwardLog, models.SalesLog)):
+            if isinstance(obj, TRACKED_MODELS):
                 log_entry = schemas.AuditLogCreate(
                     user_id=user.id, username=user.email, action="DELETE",
                     entity=obj.__class__.__name__, entity_id=obj.id,
@@ -119,6 +122,8 @@ def setup_audit_logging():
     @event.listens_for(models.Product, 'before_delete')
     @event.listens_for(models.InwardLog, 'before_delete')
     @event.listens_for(models.SalesLog, 'before_delete')
+    @event.listens_for(models.User, 'before_delete')
+    @event.listens_for(models.ProductColorStock, 'before_delete')
     def before_delete_listener(mapper, connection, target):
         user = current_user_var.get()
         if not user:

@@ -23,14 +23,16 @@ def sa_obj_to_dict(obj):
     except Exception:
         return {"id": getattr(obj, 'id', None)}
 
-async def get_sales_logs_by_product(db: AsyncSession, product_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None, stakeholder: Optional[str] = None):
+async def get_sales_logs_by_product(db: AsyncSession, product_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None, agency_name: Optional[str] = None, store_name: Optional[str] = None):
     query = select(SalesLog).filter(SalesLog.product_id == product_id)
     if start_date:
         query = query.filter(SalesLog.date >= datetime.strptime(start_date, '%Y-%m-%d').date())
     if end_date:
         query = query.filter(SalesLog.date <= datetime.strptime(end_date, '%Y-%m-%d').date())
-    if stakeholder:
-        query = query.filter((SalesLog.agency_name.ilike(f'%{stakeholder}%')) | (SalesLog.store_name.ilike(f'%{stakeholder}%')))
+    if agency_name:
+        query = query.filter(SalesLog.agency_name.ilike(f'%{agency_name}%'))
+    if store_name:
+        query = query.filter(SalesLog.store_name.ilike(f'%{store_name}%'))
     result = await db.execute(query)
     logs = result.scalars().all()
     return [SalesLogSchema.model_validate(sa_obj_to_dict(log)) for log in logs]
@@ -141,4 +143,8 @@ async def delete_sales_log(db: AsyncSession, log_id: int):
         await db.delete(db_sales_log)
         await db.commit()
         return SalesLogSchema.model_validate(log_dict)
-    return None 
+    return None
+
+async def get_sales_log_by_id(db: AsyncSession, log_id: int):
+    result = await db.execute(select(SalesLog).filter(SalesLog.id == log_id))
+    return result.scalar_one_or_none() 

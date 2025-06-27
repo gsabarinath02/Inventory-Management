@@ -299,13 +299,27 @@ export const parseExcelData = (
       }
       
       // Parse date
-      const dateStr = columns[0].trim();
-      if (!dayjs(dateStr, 'YYYY-MM-DD', true).isValid()) {
+      let dateStr = columns[0].trim();
+      let parsedDate = dayjs(dateStr, 'YYYY-MM-DD', true);
+      if (!parsedDate.isValid()) {
+        // Try to auto-convert common formats
+        const tryFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'DD-MM-YYYY', 'MM-DD-YYYY', 'YYYY/MM/DD'];
+        for (const fmt of tryFormats) {
+          const tryDate = dayjs(dateStr, fmt, true);
+          if (tryDate.isValid()) {
+            parsedDate = tryDate;
+            dateStr = tryDate.format('YYYY-MM-DD');
+            break;
+          }
+        }
+      }
+      if (!parsedDate.isValid()) {
         return { 
           success: false, 
-          error: `Row ${i + 1}: Invalid date format. Use YYYY-MM-DD` 
+          error: `Row ${i + 1}: Invalid date format. Use YYYY-MM-DD or a common format like DD/MM/YYYY, MM/DD/YYYY, etc.` 
         };
       }
+      dateStr = parsedDate.format('YYYY-MM-DD');
       
       // Parse colour code
       const colourCode = parseInt(columns[1].trim());

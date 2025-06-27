@@ -72,8 +72,35 @@ const App: React.FC = () => {
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: '#1890ff',
-          borderRadius: 6,
+          colorPrimary: '#172A53',
+          colorLink: '#172A53',
+          colorSuccess: '#D4A12A',
+          colorWarning: '#D4A12A',
+          colorError: '#E53935',
+          colorBgBase: '#F4F8FB',
+          colorTextBase: '#172A53',
+          borderRadius: 10,
+          fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
+        },
+        components: {
+          Card: {
+            borderRadius: 14,
+            boxShadow: '0 4px 24px rgba(23,42,83,0.08)',
+          },
+          Button: {
+            borderRadius: 8,
+            fontWeight: 600,
+            colorPrimary: '#172A53',
+            colorPrimaryHover: '#D4A12A',
+            colorPrimaryActive: '#D4A12A',
+          },
+          Input: {
+            borderRadius: 8,
+            colorPrimary: '#172A53',
+          },
+          Modal: {
+            borderRadius: 14,
+          },
         },
       }}
     >

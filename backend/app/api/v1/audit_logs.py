@@ -7,7 +7,8 @@ from typing import Optional
 from ... import schemas
 from ...core import crud
 from ...api import deps
-from ...schemas.audit_log import AuditLogBulkDeleteRequest, AuditLogDeleteResponse
+from ...schemas.audit_log import AuditLogBulkDeleteRequest, AuditLogDeleteResponse, AuditLogCreate
+from ...core.crud.audit_log import create_audit_log
 
 router = APIRouter()
 
@@ -45,6 +46,20 @@ async def delete_audit_log(
     deleted = await crud.audit_log.delete_audit_log(db, log_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Audit log not found")
+    # Audit log for audit log deletion
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="AUDIT_LOG_DELETE",
+            entity="AuditLog",
+            entity_id=log_id,
+            field_changed=None,
+            old_value=None,
+            new_value=f"Audit log deleted: {log_id}"
+        )
+    )
     return AuditLogDeleteResponse(deleted_count=1)
 
 @router.post("/bulk-delete", response_model=AuditLogDeleteResponse)
@@ -54,4 +69,18 @@ async def bulk_delete_audit_logs(
     current_user: schemas.User = Depends(deps.require_admin)
 ):
     deleted_count = await crud.audit_log.bulk_delete_audit_logs(db, req.log_ids)
+    # Audit log for bulk audit log deletion
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="AUDIT_LOG_BULK_DELETE",
+            entity="AuditLog",
+            entity_id=0,
+            field_changed=None,
+            old_value=None,
+            new_value=f"Bulk audit logs deleted: {req.log_ids}"
+        )
+    )
     return AuditLogDeleteResponse(deleted_count=deleted_count) 

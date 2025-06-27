@@ -4,6 +4,8 @@ import dayjs from 'dayjs';
 import { SalesLog } from '../../types';
 import { useSalesLogs } from '../../hooks/useSalesLogs';
 import { parseExcelData, ParsedExcelRow } from '../../utils';
+import { saveAs } from 'file-saver';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 
@@ -126,6 +128,29 @@ const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair
   );
 };
 
+// Helper to convert logs to CSV
+function logsToCsv(logs: SalesLog[], availableSizes: string[]): string {
+  const headers = [
+    'Date',
+    'Colour Code',
+    'Color',
+    ...availableSizes,
+    'Agency',
+    'Store',
+    'Operation',
+  ];
+  const rows = logs.map(log => [
+    log.date || '',
+    log.colour_code || '',
+    log.color || '',
+    ...availableSizes.map(size => (log.sizes && log.sizes[size]) || 0),
+    log.agency_name || '',
+    log.store_name || '',
+    log.operation || '',
+  ]);
+  return [headers, ...rows].map(r => r.join(',')).join('\n');
+}
+
 const SalesLogTable: React.FC<SalesLogTableProps> = ({ 
     productId, 
     onDataChange, 
@@ -146,6 +171,9 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     const [parsedRows, setParsedRows] = useState<ParsedExcelRow[]>([]);
     const [showParsedRows, setShowParsedRows] = useState(false);
     const [overwriteModalVisible, setOverwriteModalVisible] = useState(false);
+    const [bulkDeleteModalVisible, setBulkDeleteModalVisible] = useState(false);
+    const [lastFilterParams, setLastFilterParams] = useState<Record<string, any>>({});
+    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
     const isEditing = (record: SalesLog) => record.id === editingKey;
 
@@ -235,7 +263,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
 
     const handleOverwrite = async () => {
         if (parsedRows.length === 0) {
-            message.error('No parsed rows to overwrite');
+            message.error('No parsed rows to save');
             return;
         }
 
@@ -268,9 +296,9 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
             setShowParsedRows(false);
             setOverwriteModalVisible(false);
             
-            message.success('Successfully overwrote sales logs');
+            message.success('Successfully saved sales logs');
         } catch (error) {
-            message.error('Failed to overwrite logs');
+            message.error('Failed to save logs');
         }
     };
 
@@ -303,8 +331,10 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                     </span>
                 ) : (
                     <Space>
-                        <Button type="link" disabled={editingKey !== ''} onClick={() => edit(record)}>Edit</Button>
-                        <Popconfirm title="Sure to delete?" onConfirm={() => deleteLog(record.id).then(onDataChange)}><Button type="link" danger>Delete</Button></Popconfirm>
+                        <Button type="link" icon={<EditOutlined />} disabled={editingKey !== ''} onClick={() => edit(record)} />
+                        <Popconfirm title="Sure to delete?" onConfirm={() => deleteLog(record.id).then(onDataChange)}>
+                            <Button type="link" danger icon={<DeleteOutlined />} />
+                        </Popconfirm>
                     </Space>
                 );
             },
@@ -489,6 +519,24 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
         );
     };
 
+    const handleDownload = () => {
+        const csv = logsToCsv(logs, availableSizes);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, `sales-log-${dayjs().format('YYYYMMDD')}.csv`);
+    };
+
+    const handleBulkDeleteSelected = async () => {
+        if (selectedRowKeys.length === 0) return;
+        try {
+            await Promise.all((selectedRowKeys as number[]).map(id => deleteLog(id)));
+            setSelectedRowKeys([]);
+            onDataChange();
+            message.success(`${selectedRowKeys.length} entries deleted.`);
+        } catch {
+            message.error('Failed to delete selected entries');
+        }
+    };
+
     return (
         <Form form={form} component={false}>
             {/* Bulk Paste Panel */}
@@ -511,7 +559,7 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                                 onClick={() => setOverwriteModalVisible(true)}
                                 disabled={!showParsedRows || parsedRows.length === 0}
                             >
-                                Overwrite
+                                Save
                             </Button>
                             <Button onClick={() => {
                                 setExcelText('');
@@ -533,23 +581,17 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         form={filterForm}
                         layout="inline"
                         onFinish={(values) => {
-                            const { dateRange, agency_name, store_name, date, store_name_quick } = values;
+                            const { dateRange, agency_name, store_name } = values;
                             const filterParams: Record<string, any> = {};
                             
-                            // Quick retrieval by date and store name
-                            if (date && store_name_quick) {
-                                filterParams.date = dayjs(date).format('YYYY-MM-DD');
-                                filterParams.store_name = store_name_quick;
-                            } else {
-                                // Regular date range and agency/store filter
-                                if (dateRange && dateRange.length === 2) {
-                                    filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
-                                    filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
-                                }
-                                if (agency_name) filterParams.agency_name = agency_name;
-                                if (store_name) filterParams.store_name = store_name;
+                            // Regular date range and agency/store filter
+                            if (dateRange && dateRange.length === 2) {
+                                filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
+                                filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
                             }
-                            
+                            if (agency_name) filterParams.agency_name = agency_name;
+                            if (store_name) filterParams.store_name = store_name;
+                            setLastFilterParams(filterParams);
                             fetchLogs(filterParams);
                         }}
                         style={{ marginBottom: 8 }}
@@ -563,17 +605,17 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         <Form.Item name="store_name" label="Store">
                             <Input placeholder="Store" allowClear style={{ width: 120 }} />
                         </Form.Item>
-                        <Form.Item name="date" label="Quick Date">
-                            <DatePicker format="YYYY-MM-DD" />
-                        </Form.Item>
-                        <Form.Item name="store_name_quick" label="Store / Supplier">
-                            <Input placeholder="Store / Supplier" allowClear style={{ width: 180 }} />
-                        </Form.Item>
                         <Form.Item>
                             <Button type="primary" htmlType="submit">Apply</Button>
                         </Form.Item>
                         <Form.Item>
                             <Button onClick={() => { filterForm.resetFields(); fetchLogs({}); }}>Reset</Button>
+                        </Form.Item>
+                        <Form.Item>
+                            <Button onClick={handleDownload} type="default">Download</Button>
+                        </Form.Item>
+                        <Form.Item>
+                            <Button danger type="default" onClick={() => setBulkDeleteModalVisible(true)} disabled={logs.length === 0}>Bulk Delete</Button>
                         </Form.Item>
                     </Form>
                 </Collapse.Panel>
@@ -592,21 +634,58 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                 pagination={{ onChange: cancel }}
                 loading={loading}
                 rowKey="id"
+                rowSelection={!isReadOnly ? {
+                    selectedRowKeys,
+                    onChange: setSelectedRowKeys,
+                } : undefined}
             />
+
+            {!isReadOnly && selectedRowKeys.length > 0 && (
+                <Popconfirm
+                    title={`Are you sure you want to delete ${selectedRowKeys.length} selected entries?`}
+                    onConfirm={handleBulkDeleteSelected}
+                    okText="Yes"
+                    cancelText="No"
+                >
+                    <Button danger style={{ margin: '16px 0' }} icon={<DeleteOutlined />}>Delete Selected</Button>
+                </Popconfirm>
+            )}
 
             {/* Overwrite Confirmation Modal */}
             <Modal
-                title="Confirm Overwrite"
+                title="Confirm Save"
                 open={overwriteModalVisible}
                 onOk={handleOverwrite}
                 onCancel={() => setOverwriteModalVisible(false)}
-                okText="Proceed"
+                okText="Save"
                 cancelText="Cancel"
             >
                 <p>
                     You are about to replace all existing entries for this product in the Sales log with the rows you just loaded. 
                     This action cannot be undone. Proceed?
                 </p>
+            </Modal>
+
+            {/* Bulk Delete Confirmation Modal */}
+            <Modal
+                title="Confirm Bulk Delete"
+                open={bulkDeleteModalVisible}
+                onOk={async () => {
+                    try {
+                        await deleteLogsBulk(lastFilterParams.date, lastFilterParams.store_name);
+                        setBulkDeleteModalVisible(false);
+                        fetchLogs(lastFilterParams);
+                        message.success('Bulk delete successful');
+                    } catch (e) {
+                        message.error('Bulk delete failed');
+                    }
+                }}
+                onCancel={() => setBulkDeleteModalVisible(false)}
+                okText="Delete"
+                okButtonProps={{ danger: true }}
+                cancelText="Cancel"
+            >
+                <p>Are you sure you want to delete all filtered records? This action cannot be undone.</p>
             </Modal>
         </Form>
     );

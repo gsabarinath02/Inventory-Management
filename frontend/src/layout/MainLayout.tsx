@@ -9,6 +9,8 @@ import {
   MenuUnfoldOutlined,
   MenuFoldOutlined,
   AuditOutlined,
+  BellOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -108,20 +110,37 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider width={200} theme="dark" collapsed={collapsed}>
-        <div style={{ 
-          height: 32, 
-          margin: 16, 
-          background: 'rgba(255, 255, 255, 0.2)', 
-          borderRadius: 6,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          fontSize: '14px',
-          fontWeight: 500
-        }}>
-          {collapsed ? 'IMS' : 'Inventory System'}
+      <Sider width={200} theme="dark" collapsed={collapsed} style={{
+        background: 'linear-gradient(135deg, #172A53 0%, #23376B 100%)',
+        transition: 'background 0.5s',
+      }}>
+        <div
+          style={{
+            height: 80,
+            margin: 16,
+            background: 'transparent',
+            borderRadius: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'none',
+            padding: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <img
+            src="/Backstitch-logo.svg"
+            alt="Backstitch Logo"
+            style={{
+              height: 56,
+              width: 56,
+              objectFit: 'contain',
+              background: 'none',
+              boxShadow: 'none',
+              borderRadius: 0,
+              transition: 'margin 0.3s'
+            }}
+          />
         </div>
         <Menu
           mode="inline"
@@ -130,41 +149,42 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           style={{ height: '100%', borderRight: 0 }}
           items={getMenuItems()}
           onClick={handleMenuClick}
+          theme="dark"
+          inlineIndent={16}
         />
       </Sider>
       <Layout style={{ background: '#f0f2f5' }}>
-        <Header style={{ 
-          padding: '0 24px', 
-          background: '#fff', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <Header style={{
+          padding: '0 24px',
+          background: '#fff',
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          boxShadow: '0 2px 8px rgba(23,42,83,0.08)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Button
-                type="text"
-                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                onClick={() => setCollapsed(!collapsed)}
-                style={{
-                    fontSize: '16px',
-                    width: 64,
-                    height: 64,
-                    marginRight: '16px'
-                }}
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} 
+              onClick={() => setCollapsed(!collapsed)}
+              style={{ fontSize: '16px', width: 64, height: 64, marginRight: '16px', color: '#172A53' }}
             />
-            <h1 style={{ margin: 0, color: '#1890ff', fontWeight: 600 }}>
+            <h1 style={{ margin: 0, color: '#172A53', fontWeight: 700, fontSize: 24, letterSpacing: 1 }}>
               Inventory Management System
             </h1>
           </div>
-          {user && (
-            <Dropdown menu={{ items: userMenuItems, style: menuStyle }} placement="bottomRight">
-              <a onClick={e => e.preventDefault()} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                <Avatar style={{ backgroundColor: '#f56a00', marginRight: 8 }} icon={<UserOutlined />} />
-                <Text strong>{user.name || user.email}</Text>
-              </a>
-            </Dropdown>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <Button type="text" icon={<BellOutlined />} style={{ fontSize: 20, color: '#172A53' }} aria-label="Notifications" />
+            <Button type="text" icon={<QuestionCircleOutlined />} style={{ fontSize: 20, color: '#D4A12A' }} aria-label="Help" />
+            {user && (
+              <Dropdown menu={{ items: userMenuItems, style: menuStyle }} placement="bottomRight">
+                <a onClick={e => e.preventDefault()} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <Avatar style={{ backgroundColor: '#D4A12A', marginRight: 8, color: '#172A53', fontWeight: 700 }} icon={<UserOutlined />} />
+                  <Text strong style={{ color: '#172A53' }}>{user.name || user.email}</Text>
+                </a>
+              </Dropdown>
+            )}
+          </div>
         </Header>
         <Content style={{ margin: '24px 16px', padding: 24, background: '#fff' }}>
             <motion.div

@@ -10,6 +10,7 @@ import { useAuditLogs } from '../hooks/useAuditLogs';
 import { useUsers } from '../hooks/useUsers';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import type { Key } from 'react';
+import { saveAs } from 'file-saver';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -267,9 +268,31 @@ const ActivityLogsPage: React.FC = () => {
     } : null,
   ].filter(Boolean);
 
+  const downloadCsv = () => {
+    if (!Array.isArray(logs) || logs.length === 0) {
+      message.info('No logs to export');
+      return;
+    }
+    const headers = ['Date/Time', 'User', 'Action', 'Entity', 'Entity ID', 'Changes'];
+    const rows = logs.map(log => [
+      format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm'),
+      log.username,
+      log.action,
+      log.entity,
+      log.entity_id,
+      typeof log.field_changed !== 'undefined' ? `Field: ${log.field_changed}, Old: ${log.old_value}, New: ${log.new_value}` :
+        log.action === 'CREATE' ? `New: ${prettyJSON(log.new_value)}` :
+        log.action === 'DELETE' ? `Old: ${prettyJSON(log.old_value)}` : '',
+    ]);
+    const csvContent = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `activity_logs_${new Date().toISOString().slice(0,10)}.csv`);
+  };
+
   return (
     <Card style={{ margin: 24, boxShadow: '0 2px 8px #f0f1f2' }}>
       <Title level={2}>Activity Logs</Title>
+      <Button onClick={downloadCsv} type="default" style={{ marginBottom: 16 }}>Download CSV</Button>
       <Card style={{ marginBottom: 24, background: '#fafcff', border: '1px solid #e6f7ff' }} bodyStyle={{ padding: 16 }}>
         <Form form={form} layout="vertical" onFinish={handleFilterSubmit}>
           <Row gutter={16} align="middle">
