@@ -288,8 +288,8 @@ export const parseExcelData = (
       
       const columns = line.split('\t');
       
-      // Expected columns: Date, Color, Colour Code, S, M, L, XL, ..., Category, Stakeholder/Store
-      const expectedColumns = 3 + availableSizes.length + 2; // Date, Color, Code, Sizes, Category, Stakeholder
+      // Expected columns: Date, Colour Code, Color, S, M, L, XL, ..., Category, Stakeholder/Store
+      const expectedColumns = 3 + availableSizes.length + 1; // Date, Colour Code, Color, Sizes, Category/Agency, Stakeholder/Store
       
       if (columns.length < expectedColumns) {
         return { 
@@ -307,21 +307,20 @@ export const parseExcelData = (
         };
       }
       
-      // Parse color
-      const color = columns[1].trim();
-      if (!color) {
-        return { 
-          success: false, 
-          error: `Row ${i + 1}: Color is required` 
-        };
-      }
-      
       // Parse colour code
-      const colourCode = parseInt(columns[2].trim());
+      const colourCode = parseInt(columns[1].trim());
       if (isNaN(colourCode)) {
         return { 
           success: false, 
           error: `Row ${i + 1}: Invalid colour code` 
+        };
+      }
+      // Parse color
+      const color = columns[2].trim();
+      if (!color) {
+        return { 
+          success: false, 
+          error: `Row ${i + 1}: Color is required` 
         };
       }
       
@@ -354,8 +353,8 @@ export const parseExcelData = (
       
       const row: ParsedExcelRow = {
         date: dateStr,
-        color,
         colour_code: colourCode,
+        color,
         sizes,
       };
       

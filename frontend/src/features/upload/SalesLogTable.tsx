@@ -287,8 +287,8 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
     // Only the static columns have inputType/options
     const staticColumns = [
         { title: 'Date', dataIndex: 'date', editable: true, inputType: 'date' as const, render: (text: string) => dayjs(text).format('YYYY-MM-DD')},
-        { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select' as const, options: availableColors },
         { title: 'Colour Code', dataIndex: 'colour_code', editable: true, inputType: 'number' as const, render: (code: number) => code !== undefined ? code : '' },
+        { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select' as const, options: availableColors },
         { title: 'Agency', dataIndex: 'agency_name', editable: true, inputType: 'text' as const },
         { title: 'Store', dataIndex: 'store_name', editable: true, inputType: 'text' as const },
         {
@@ -313,8 +313,8 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
 
     let columns = [
         staticColumns[0], // Date
-        staticColumns[1], // Color
-        staticColumns[2], // Colour Code
+        staticColumns[1], // Colour Code
+        staticColumns[2], // Color
         ...sizeColumns,
         staticColumns[3], // Agency
         staticColumns[4], // Store
@@ -424,15 +424,6 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                 save('new_row', newRow as Partial<SalesLog>);
             }}>
                 <Form.Item name="date" rules={[{ required: true }]}><DatePicker format="YYYY-MM-DD"/></Form.Item>
-                <Form.Item name="color" rules={[{ required: true }]}> 
-                    <Select
-                        placeholder="Color"
-                        style={{width: 120}}
-                        options={colorOptions}
-                        onChange={handleColorChange}
-                        value={colorValue}
-                    />
-                </Form.Item>
                 <Form.Item name="colour_code" rules={[{ required: true }]}> 
                     <Select
                         placeholder="Colour Code"
@@ -440,6 +431,15 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
                         options={codeOptions}
                         onChange={handleCodeChange}
                         value={codeValue}
+                    />
+                </Form.Item>
+                <Form.Item name="color" rules={[{ required: true }]}> 
+                    <Select
+                        placeholder="Color"
+                        style={{width: 120}}
+                        options={colorOptions}
+                        onChange={handleColorChange}
+                        value={colorValue}
                     />
                 </Form.Item>
                 {availableSizes.map(size => (
@@ -463,8 +463,8 @@ const SalesLogTable: React.FC<SalesLogTableProps> = ({
 
         const previewColumns = [
             { title: 'Date', dataIndex: 'date', key: 'date' },
-            { title: 'Color', dataIndex: 'color', key: 'color' },
             { title: 'Colour Code', dataIndex: 'colour_code', key: 'colour_code' },
+            { title: 'Color', dataIndex: 'color', key: 'color' },
             ...availableSizes.map(size => ({
                 title: size,
                 dataIndex: 'sizes',

@@ -76,20 +76,33 @@ const ProductList: React.FC = () => {
         ),
         valueFormatter: params => Array.isArray(params.value) ? params.value.join(', ') : params.value,
       },
-      { 
-        field: 'colors', 
-        headerName: 'Colors', 
-        width: 180, 
+      {
+        headerName: 'Colour Code',
+        field: 'colors',
+        width: 120,
+        valueGetter: params => Array.isArray(params.data.colors) ? params.data.colors.map((c: any) => c.colour_code).join(', ') : '',
         cellRenderer: (params: any) => (
           <Space wrap size={[0, 8]}>
-            {Array.isArray(params.value) ? params.value.map((color: { color: string, colour_code: number }) => (
-              <Tag key={color.color} color={getColor(color.color)} title={color.colour_code !== undefined ? `Code: ${color.colour_code}` : undefined}>
-                {color.color}
+            {Array.isArray(params.data.colors) ? params.data.colors.map((c: any) => (
+              <Tag key={c.colour_code}>{c.colour_code}</Tag>
+            )) : null}
+          </Space>
+        ),
+      },
+      {
+        headerName: 'Color',
+        field: 'colors',
+        width: 180,
+        valueGetter: params => Array.isArray(params.data.colors) ? params.data.colors.map((c: any) => c.color).join(', ') : '',
+        cellRenderer: (params: any) => (
+          <Space wrap size={[0, 8]}>
+            {Array.isArray(params.data.colors) ? params.data.colors.map((c: any) => (
+              <Tag key={c.color} color={getColor(c.color)} title={c.colour_code !== undefined ? `Code: ${c.colour_code}` : undefined}>
+                {c.color}
               </Tag>
             )) : null}
           </Space>
         ),
-        valueFormatter: params => Array.isArray(params.value) ? params.value.map((c: any) => c.color).join(', ') : params.value,
       },
       { field: 'created_at', headerName: 'Created', width: 150, valueFormatter: (params: any) => formatDate(params.value) },
     ];
