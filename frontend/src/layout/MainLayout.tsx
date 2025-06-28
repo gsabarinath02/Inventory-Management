@@ -11,6 +11,8 @@ import {
   AuditOutlined,
   BellOutlined,
   QuestionCircleOutlined,
+  UserAddOutlined,
+  TeamOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -40,33 +42,44 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         return <UploadOutlined />;
       case 'UserOutlined':
         return <UserOutlined />;
+      case 'UserAddOutlined':
+        return <UserAddOutlined />;
+      case 'TeamOutlined':
+        return <TeamOutlined />;
       default:
         return null;
     }
   };
 
   const getMenuItems = () => {
-    const baseItems: { key: string; icon: JSX.Element | null; label: string }[] =
+    const baseItems: { key: string; icon: JSX.Element | null; label: string; adminOnly?: boolean }[] =
       Array.isArray(NAVIGATION.MENU_ITEMS) ? NAVIGATION.MENU_ITEMS.map((item) => ({
         key: item.key,
         icon: getIcon(item.icon),
         label: item.label,
+        adminOnly: (item as any).adminOnly,
       })) : [];
 
+    // Only show Registration for admin
+    const filteredItems = baseItems.filter(item => {
+      if (item.adminOnly && user?.role !== 'admin') return false;
+      return true;
+    });
+
     if (user?.role === 'admin') {
-      baseItems.push({
+      filteredItems.push({
         key: '/users',
-        icon: <UserOutlined />,
+        icon: <TeamOutlined />,
         label: 'User Management',
       });
-      baseItems.push({
+      filteredItems.push({
         key: '/activity-logs',
         icon: <AuditOutlined />,
         label: 'Activity Logs',
       });
     }
 
-    return baseItems;
+    return filteredItems;
   };
 
   const handleMenuClick = ({ key }: { key: string }) => {

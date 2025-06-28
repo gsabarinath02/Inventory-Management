@@ -5,7 +5,9 @@ import {
   DetailedStockData, 
   ProductFormData,
   InwardLog,
-  SalesLog
+  SalesLog,
+  Customer,
+  Agency
 } from '../types';
 import { API_CONFIG, API_ENDPOINTS } from '../constants';
 
@@ -140,5 +142,45 @@ export const bulkDeleteAuditLogs = async (logIds: number[]) => {
     throw error;
   }
 };
+
+// Customers
+export async function getCustomers(): Promise<Customer[]> {
+  const res = await api.get('/customers');
+  return res.data;
+}
+
+export async function createCustomer(data: Partial<Customer>): Promise<Customer> {
+  const res = await api.post('/customers', data);
+  return res.data;
+}
+
+export async function updateCustomer(id: number, data: Partial<Customer>): Promise<Customer> {
+  const res = await api.put(`/customers/${id}`, data);
+  return res.data;
+}
+
+export async function deleteCustomer(id: number): Promise<void> {
+  await api.delete(`/customers/${id}`);
+}
+
+// Agencies
+export async function getAgencies(): Promise<Agency[]> {
+  const res = await api.get('/agencies');
+  return res.data;
+}
+
+export async function createAgency(data: Partial<Agency>): Promise<Agency> {
+  const res = await api.post('/agencies', data);
+  return res.data;
+}
+
+export async function updateAgency(id: number, data: Partial<Agency>): Promise<Agency> {
+  const res = await api.put(`/agencies/${id}`, data);
+  return res.data;
+}
+
+export async function deleteAgency(id: number): Promise<void> {
+  await api.delete(`/agencies/${id}`);
+}
 
 export default api; 

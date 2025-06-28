@@ -6,6 +6,8 @@ from .stock import *
 from .product_color_stock import *
 from .user import *
 from .audit_log import AuditLogCreate, AuditLogOut
+from .customer import *
+from .agency import *
 
 __all__ = [
     # Base schemas
@@ -25,6 +27,12 @@ __all__ = [
     # User schemas
     "UserBase", "UserCreate", "UserUpdate", "UserOut", "UserLogin", "Token", "TokenData",
     "User",
+    
+    # Customer schemas
+    "CustomerBase", "CustomerCreate", "CustomerUpdate", "Customer",
+    
+    # Agency schemas
+    "AgencyBase", "AgencyCreate", "AgencyUpdate", "Agency",
     
     # Audit Log schemas
     "AuditLogCreate", "AuditLogOut", "AuditLogBulkDeleteRequest", "AuditLogDeleteResponse",

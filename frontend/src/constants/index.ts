@@ -52,6 +52,12 @@ export const NAVIGATION = {
       label: 'Upload Data',
       icon: 'UploadOutlined',
     },
+    {
+      key: '/registration',
+      label: 'Registration',
+      icon: 'UserAddOutlined',
+      adminOnly: true,
+    },
   ] as const,
 } as const;
 

@@ -8,6 +8,7 @@ import Upload from './features/upload/Upload';
 import Login from './pages/Login';
 import UserManagement from './pages/UserManagement';
 import ActivityLogsPage from './pages/ActivityLogs';
+import Registration from './pages/Registration';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -58,6 +59,14 @@ const AppRoutes: React.FC = () => {
         <ProtectedRoute requiredRole="admin">
           <MainLayout>
             <ActivityLogsPage />
+          </MainLayout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/registration" element={
+        <ProtectedRoute requiredRole="admin">
+          <MainLayout>
+            <Registration />
           </MainLayout>
         </ProtectedRoute>
       } />

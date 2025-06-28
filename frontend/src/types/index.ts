@@ -105,4 +105,32 @@ export interface AuditLog {
   field_changed?: string;
   old_value?: string;
   new_value?: string;
+}
+
+export interface Customer {
+  id: number;
+  store_name: string;
+  referrer: 'Nagarajan' | 'Krishna Pranav';
+  owner_mobile: string;
+  accounts_mobile: string;
+  days_of_payment: number;
+  gst_number: string;
+  address: string;
+  pincode: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Agency {
+  id: number;
+  agency_name: string;
+  owner_mobile: string;
+  accounts_mobile: string;
+  days_of_payment: number;
+  gst_number: string;
+  address: string;
+  pincode: string;
+  region_covered: string;
+  created_at: string;
+  updated_at?: string;
 } 

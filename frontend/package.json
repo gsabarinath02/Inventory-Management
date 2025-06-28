@@ -13,7 +13,9 @@
   "dependencies": {
     "@ant-design/cssinjs": "^1.23.0",
     "@ant-design/icons": "^5.2.6",
+    "@types/leaflet": "^1.9.19",
     "@types/papaparse": "^5.3.16",
+    "@types/react-leaflet": "^2.8.3",
     "@types/react-router-dom": "^5.3.3",
     "ag-grid-community": "^31.3.4",
     "ag-grid-react": "^31.3.4",
@@ -25,6 +27,7 @@
     "papaparse": "^5.5.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.30.1"
   },
   "devDependencies": {

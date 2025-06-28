@@ -3,6 +3,8 @@ import { CustomTagProps } from 'rc-select/lib/BaseSelect';
 import { ProductFormData, Product } from '../types';
 import { VALIDATION_RULES } from '../constants';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { getAgencies, getCustomers } from '../services/api';
 
 const { TextArea } = Input;
 
@@ -43,6 +45,18 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onCancel,
   isEditing,
 }) => {
+  const [agencyOptions, setAgencyOptions] = useState<{ label: string; value: string }[]>([]);
+  const [storeOptions, setStoreOptions] = useState<{ label: string; value: string }[]>([]);
+
+  useEffect(() => {
+    getAgencies().then(data => {
+      setAgencyOptions(data.map(a => ({ label: a.agency_name, value: a.agency_name })));
+    });
+    getCustomers().then(data => {
+      setStoreOptions(data.map(c => ({ label: c.store_name, value: c.store_name })));
+    });
+  }, []);
+
   return (
     <Form
       form={form}
@@ -111,12 +125,15 @@ const ProductForm: React.FC<ProductFormProps> = ({
       <Form.Item
         name="allowed_agencies"
         label="Allowed Agencies"
-        rules={[{ required: true, message: 'Please enter at least one allowed agency' }]}
+        rules={[{ required: true, message: 'Please select at least one allowed agency' }]}
       >
         <Select
-          mode="tags"
+          mode="multiple"
+          showSearch
+          optionFilterProp="label"
           style={{ width: '100%' }}
-          placeholder="Type and press Enter to add agencies"
+          placeholder="Select allowed agencies"
+          options={agencyOptions}
         />
       </Form.Item>
 
@@ -126,9 +143,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
         rules={[]}
       >
         <Select
-          mode="tags"
+          mode="multiple"
+          showSearch
+          optionFilterProp="label"
           style={{ width: '100%' }}
-          placeholder="Type and press Enter to add stores (optional)"
+          placeholder="Select allowed stores (optional)"
+          options={storeOptions}
         />
       </Form.Item>
 
