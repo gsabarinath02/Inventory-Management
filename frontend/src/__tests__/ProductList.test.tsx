@@ -1,7 +1,9 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { rest } from 'msw';
 import { setupServer } from 'msw/node';
+import { AuthProvider } from '../context/AuthContext';
 import ProductList from '../features/products/ProductList';
 import '@testing-library/jest-dom';
 
@@ -47,136 +49,146 @@ beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-test('renders product list from API', async () => {
-  render(<ProductList />);
-  expect(await screen.findByText('Shirt')).toBeInTheDocument();
-  expect(screen.getByText('Pants')).toBeInTheDocument();
-});
-
-test('handles API error on fetch', async () => {
-  server.use(rest.get(`${apiUrl}/products`, (req, res, ctx) => res(ctx.status(500))));
-  render(<ProductList />);
-  expect(await screen.findByText('Total Products')).toBeInTheDocument();
-});
-
-test('opens create modal when Add Product button is clicked', async () => {
-  render(<ProductList />);
-  const addButton = await screen.findByText('Add Product');
-  fireEvent.click(addButton);
-  expect(screen.getByRole('dialog')).toBeInTheDocument();
-  expect(screen.getByLabelText('Name')).toBeInTheDocument();
-});
-
-test('creates product successfully', async () => {
-  server.use(
-    rest.post(`${apiUrl}/products`, (req, res, ctx) =>
-      res(ctx.json({ id: 3, name: 'New Product', sku: 'NP001', unit_price: 15.99 }))
-    )
+const renderWithAuth = (ui: React.ReactElement) => {
+  return render(
+    <AuthProvider>
+      {ui}
+    </AuthProvider>
   );
+};
 
-  render(<ProductList />);
-  
-  // Open create modal
-  const addButton = await screen.findByText('Add Product');
-  fireEvent.click(addButton);
-  
-  // Fill form
-  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Product' } });
-  fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'NP001' } });
-  fireEvent.change(screen.getByLabelText('Unit Price'), { target: { value: '15.99' } });
-  
-  // Submit form
-  fireEvent.click(screen.getByText('Create'));
-  
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+describe('ProductList', () => {
+  it('renders product list from API', async () => {
+    renderWithAuth(<ProductList />);
+    expect(await screen.findByText('Shirt')).toBeInTheDocument();
+    expect(screen.getByText('Pants')).toBeInTheDocument();
   });
-});
 
-test('validates required fields on create', async () => {
-  render(<ProductList />);
-  
-  // Open create modal
-  const addButton = await screen.findByText('Add Product');
-  fireEvent.click(addButton);
-  
-  // Try to submit without filling required fields
-  fireEvent.click(screen.getByText('Create'));
-  
-  await waitFor(() => {
-    expect(screen.getByText('Please enter product name')).toBeInTheDocument();
-    expect(screen.getByText('Please enter SKU')).toBeInTheDocument();
-    expect(screen.getByText('Please enter unit price')).toBeInTheDocument();
+  it('handles API error on fetch', async () => {
+    server.use(rest.get(`${apiUrl}/products`, (req, res, ctx) => res(ctx.status(500))));
+    renderWithAuth(<ProductList />);
+    expect(await screen.findByText('Total Products')).toBeInTheDocument();
   });
-});
 
-test('shows AntD validation error for negative unit price', async () => {
-  render(<ProductList />);
-  
-  // Open create modal
-  const addButton = await screen.findByText('Add Product');
-  fireEvent.click(addButton);
-  
-  // Fill form with negative price
-  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test Product' } });
-  fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TP001' } });
-  fireEvent.change(screen.getByLabelText('Unit Price'), { target: { value: '-10' } });
-  
-  // Submit form
-  fireEvent.click(screen.getByText('Create'));
-  
-  await waitFor(() => {
-    const modal = screen.getByRole('dialog');
-    expect(modal).toBeInTheDocument();
-    // AntD validation error for negative values
-    expect(within(modal).getByText('Please enter unit price')).toBeInTheDocument();
+  it('opens create modal when Add Product button is clicked', async () => {
+    renderWithAuth(<ProductList />);
+    const addButton = await screen.findByText('Add Product');
+    fireEvent.click(addButton);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
   });
-});
 
-test('shows backend error in modal for valid input', async () => {
-  server.use(
-    rest.post(`${apiUrl}/products`, (req, res, ctx) =>
-      res(ctx.status(422), ctx.json({ detail: 'Unit price must be >= 0' }))
-    )
-  );
+  it('creates product successfully', async () => {
+    server.use(
+      rest.post(`${apiUrl}/products`, (req, res, ctx) =>
+        res(ctx.json({ id: 3, name: 'New Product', sku: 'NP001', unit_price: 15.99 }))
+      )
+    );
 
-  render(<ProductList />);
-
-  // Open create modal
-  const addButton = await screen.findByText('Add Product');
-  fireEvent.click(addButton);
-
-  // Fill form with valid (positive) price
-  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test Product' } });
-  fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TP001' } });
-  fireEvent.change(screen.getByLabelText('Unit Price'), { target: { value: '10' } });
-
-  // Submit form
-  fireEvent.click(screen.getByText('Create'));
-
-  await waitFor(() => {
-    const modal = screen.getByRole('dialog');
-    expect(modal).toBeInTheDocument();
-    expect(within(modal).getByText('Unit price must be >= 0')).toBeInTheDocument();
+    renderWithAuth(<ProductList />);
+    
+    // Open create modal
+    const addButton = await screen.findByText('Add Product');
+    fireEvent.click(addButton);
+    
+    // Fill form
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Product' } });
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'NP001' } });
+    fireEvent.change(screen.getByLabelText('Unit Price'), { target: { value: '15.99' } });
+    
+    // Submit form
+    fireEvent.click(screen.getByText('Create'));
+    
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
-});
 
-test('displays total products count', async () => {
-  render(<ProductList />);
-  expect(await screen.findByText('Total Products')).toBeInTheDocument();
-  // Wait for the API call to complete and check the statistic
-  await waitFor(() => {
-    const totalProductsElement = screen.getByText('Total Products').closest('.ant-card')?.querySelector('.ant-statistic-content-value-int');
-    expect(totalProductsElement).toHaveTextContent('2');
+  it('validates required fields on create', async () => {
+    renderWithAuth(<ProductList />);
+    
+    // Open create modal
+    const addButton = await screen.findByText('Add Product');
+    fireEvent.click(addButton);
+    
+    // Try to submit without filling required fields
+    fireEvent.click(screen.getByText('Create'));
+    
+    await waitFor(() => {
+      expect(screen.getByText('Please enter product name')).toBeInTheDocument();
+      expect(screen.getByText('Please enter SKU')).toBeInTheDocument();
+      expect(screen.getByText('Please enter unit price')).toBeInTheDocument();
+    });
   });
-});
 
-test('displays total value', async () => {
-  render(<ProductList />);
-  expect(await screen.findByText('Total Value')).toBeInTheDocument();
-  // Wait for the API call to complete and check the statistic
-  await waitFor(() => {
-    const totalValueElement = screen.getByText('Total Value').closest('.ant-card')?.querySelector('.ant-statistic-content-value-int');
-    expect(totalValueElement).toHaveTextContent('30');
+  it('shows AntD validation error for negative unit price', async () => {
+    renderWithAuth(<ProductList />);
+    
+    // Open create modal
+    const addButton = await screen.findByText('Add Product');
+    fireEvent.click(addButton);
+    
+    // Fill form with negative price
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test Product' } });
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TP001' } });
+    fireEvent.change(screen.getByLabelText('Unit Price'), { target: { value: '-10' } });
+    
+    // Submit form
+    fireEvent.click(screen.getByText('Create'));
+    
+    await waitFor(() => {
+      const modal = screen.getByRole('dialog');
+      expect(modal).toBeInTheDocument();
+      // AntD validation error for negative values
+      expect(within(modal).getByText('Please enter unit price')).toBeInTheDocument();
+    });
+  });
+
+  it('shows backend error in modal for valid input', async () => {
+    server.use(
+      rest.post(`${apiUrl}/products`, (req, res, ctx) =>
+        res(ctx.status(422), ctx.json({ detail: 'Unit price must be >= 0' }))
+      )
+    );
+
+    renderWithAuth(<ProductList />);
+
+    // Open create modal
+    const addButton = await screen.findByText('Add Product');
+    fireEvent.click(addButton);
+
+    // Fill form with valid (positive) price
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test Product' } });
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'TP001' } });
+    fireEvent.change(screen.getByLabelText('Unit Price'), { target: { value: '10' } });
+
+    // Submit form
+    fireEvent.click(screen.getByText('Create'));
+
+    await waitFor(() => {
+      const modal = screen.getByRole('dialog');
+      expect(modal).toBeInTheDocument();
+      expect(within(modal).getByText('Unit price must be >= 0')).toBeInTheDocument();
+    });
+  });
+
+  it('displays total products count', async () => {
+    renderWithAuth(<ProductList />);
+    expect(await screen.findByText('Total Products')).toBeInTheDocument();
+    // Wait for the API call to complete and check the statistic
+    await waitFor(() => {
+      const totalProductsElement = screen.getByText('Total Products').closest('.ant-card')?.querySelector('.ant-statistic-content-value-int');
+      expect(totalProductsElement).toHaveTextContent('2');
+    });
+  });
+
+  it('displays total value', async () => {
+    renderWithAuth(<ProductList />);
+    expect(await screen.findByText('Total Value')).toBeInTheDocument();
+    // Wait for the API call to complete and check the statistic
+    await waitFor(() => {
+      const totalValueElement = screen.getByText('Total Value').closest('.ant-card')?.querySelector('.ant-statistic-content-value-int');
+      expect(totalValueElement).toHaveTextContent('30');
+    });
   });
 });

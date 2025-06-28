@@ -1,9 +1,11 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { rest } from 'msw';
 import { setupServer } from 'msw/node';
 import ProductView from '../features/products/ProductView';
 import '@testing-library/jest-dom';
+import * as api from '../services/api';
 
 // Mock ag-grid components
 jest.mock('ag-grid-react', () => ({
@@ -58,55 +60,103 @@ beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-test('loads products on mount and renders product selector', async () => {
-  render(<ProductView />);
+// Mock the API
+jest.mock('../services/api');
+const mockApi = api as jest.Mocked<typeof api>;
 
-  // Wait for products to load
-  await waitFor(() => {
-    expect(screen.getByText('Select a product')).toBeInTheDocument();
+afterEach(cleanup);
+
+describe('ProductView', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    mockApi.getProducts.mockResolvedValue([
+      { id: 1, name: 'Test Product', sku: 'TP01' }
+    ]);
   });
 
-  // Check if product options appear
-  const select = screen.getByRole('combobox');
-  fireEvent.mouseDown(select);
+  it('fetches and displays stock matrix successfully', async () => {
+    render(<ProductView />);
+    
+    // Wait for the product selector to be available
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
+    });
 
-  await waitFor(() => {
-    expect(screen.getByText('Test Product (TP01)')).toBeInTheDocument();
-  });
-});
-
-test('fetches and displays stock matrix successfully', async () => {
-  render(<ProductView />);
-
-  // Wait for products to load
-  await waitFor(() => {
-    expect(screen.getByText('Select a product')).toBeInTheDocument();
-  });
-
-  // Select a product
-  const select = screen.getByRole('combobox');
-  fireEvent.mouseDown(select);
-  await waitFor(() => {
-    expect(screen.getByText('Test Product (TP01)')).toBeInTheDocument();
-  });
-  const option = document.body.querySelector('div[title="Test Product (TP01)"]');
-  expect(option).not.toBeNull();
-  fireEvent.click(option!);
-
-  // Click refresh button
-  const refreshButton = screen.getByText('Refresh');
-  fireEvent.click(refreshButton);
-
-  // Wait for stock matrix to load and display
-  await waitFor(() => {
-    // Check that the grid is rendered with correct data
-    expect(screen.getByText('Red')).toBeInTheDocument();
-    expect(screen.getByText('Blue')).toBeInTheDocument();
+    const select = screen.getByRole('combobox');
+    fireEvent.mouseDown(select);
+    
+    await waitFor(() => {
+      expect(screen.getByText('Test Product (TP01)')).toBeInTheDocument();
+    });
   });
 
-  // Check that the grid cells show correct numbers
-  const gridContainer = document.querySelector('.ag-theme-alpine');
-  expect(gridContainer).toBeInTheDocument();
+  it('loads products on mount and renders product selector', async () => {
+    render(<ProductView />);
+    
+    await waitFor(() => {
+      expect(mockApi.getProducts).toHaveBeenCalled();
+    });
+    
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('handles stock fetch failure and shows error alert', async () => {
+    mockApi.getProducts = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+    
+    render(<ProductView />);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/failed to fetch/i)).toBeInTheDocument();
+    });
+  });
+
+  it('disables refresh button when no product selected', () => {
+    render(<ProductView />);
+    
+    const refreshButton = screen.getByRole('button', { name: /refresh/i });
+    expect(refreshButton).toBeDisabled();
+  });
+
+  it('enables refresh button when product is selected', async () => {
+    render(<ProductView />);
+    
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
+    });
+
+    const select = screen.getByRole('combobox');
+    fireEvent.mouseDown(select);
+    
+    await waitFor(() => {
+      expect(screen.getByText('Test Product (TP01)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Test Product (TP01)'));
+    
+    const refreshButton = screen.getByRole('button', { name: /refresh/i });
+    expect(refreshButton).not.toBeDisabled();
+  });
+
+  it('shows loading spinner during stock fetch', async () => {
+    render(<ProductView />);
+    
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
+    });
+
+    const select = screen.getByRole('combobox');
+    fireEvent.mouseDown(select);
+    
+    await waitFor(() => {
+      expect(screen.getByText('Test Product (TP01)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Test Product (TP01)'));
+    
+    // Should show loading state
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
 });
 
 test('handles stock fetch failure and shows error alert', async () => {

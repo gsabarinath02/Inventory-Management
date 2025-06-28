@@ -51,35 +51,35 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }
   };
 
-  const getMenuItems = () => {
-    const baseItems: { key: string; icon: JSX.Element | null; label: string; adminOnly?: boolean }[] =
-      Array.isArray(NAVIGATION.MENU_ITEMS) ? NAVIGATION.MENU_ITEMS.map((item) => ({
-        key: item.key,
-        icon: getIcon(item.icon),
-        label: item.label,
-        adminOnly: (item as any).adminOnly,
-      })) : [];
-
-    // Only show Registration for admin
-    const filteredItems = baseItems.filter(item => {
+  const getMainMenuItems = () => {
+    const baseItems = Array.isArray(NAVIGATION.MENU_ITEMS) ? NAVIGATION.MENU_ITEMS.map((item) => ({
+      key: item.key,
+      icon: getIcon(item.icon),
+      label: item.label,
+      adminOnly: (item as any).adminOnly,
+    })) : [];
+    return baseItems.filter(item => {
       if (item.adminOnly && user?.role !== 'admin') return false;
       return true;
     });
+  };
 
+  const getBottomMenuItems = () => {
     if (user?.role === 'admin') {
-      filteredItems.push({
-        key: '/users',
-        icon: <TeamOutlined />,
-        label: 'User Management',
-      });
-      filteredItems.push({
-        key: '/activity-logs',
-        icon: <AuditOutlined />,
-        label: 'Activity Logs',
-      });
+      return [
+        {
+          key: '/users',
+          icon: <TeamOutlined />,
+          label: 'User Management',
+        },
+        {
+          key: '/activity-logs',
+          icon: <AuditOutlined />,
+          label: 'Activity Logs',
+        },
+      ];
     }
-
-    return filteredItems;
+    return [];
   };
 
   const handleMenuClick = ({ key }: { key: string }) => {
@@ -126,6 +126,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <Sider width={200} theme="dark" collapsed={collapsed} style={{
         background: 'linear-gradient(135deg, #172A53 0%, #23376B 100%)',
         transition: 'background 0.5s',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
       }}>
         <div
           style={{
@@ -155,16 +158,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             }}
           />
         </div>
-        <Menu
-          mode="inline"
-          defaultSelectedKeys={['/']}
-          selectedKeys={[location.pathname]}
-          style={{ height: '100%', borderRight: 0 }}
-          items={getMenuItems()}
-          onClick={handleMenuClick}
-          theme="dark"
-          inlineIndent={16}
-        />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Menu
+            mode="inline"
+            defaultSelectedKeys={['/']}
+            selectedKeys={[location.pathname]}
+            style={{ borderRight: 0, background: 'transparent', flex: '0 0 auto' }}
+            items={getMainMenuItems()}
+            onClick={handleMenuClick}
+            theme="dark"
+            inlineIndent={16}
+          />
+          <div style={{ marginTop: 'auto' }}>
+            <div style={{ borderTop: '1px solid #23376B', margin: '16px 0 0 0' }} />
+            <Menu
+              mode="inline"
+              selectedKeys={[location.pathname]}
+              style={{ borderRight: 0, background: 'transparent' }}
+              items={getBottomMenuItems()}
+              onClick={handleMenuClick}
+              theme="dark"
+              inlineIndent={16}
+            />
+          </div>
+        </div>
       </Sider>
       <Layout style={{ background: '#f0f2f5' }}>
         <Header style={{

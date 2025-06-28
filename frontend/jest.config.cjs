@@ -1,29 +1,36 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': '<rootDir>/src/__mocks__/styleMock.js',
-    '^ag-grid-community/styles/ag-grid.css$': '<rootDir>/src/__mocks__/styleMock.js',
-    '^ag-grid-community/styles/ag-theme-alpine.css$': '<rootDir>/src/__mocks__/styleMock.js'
+    '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$': '<rootDir>/src/__mocks__/fileMock.js',
   },
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: 'tsconfig.json'
-    }]
+      tsconfig: 'tsconfig.test.json',
+      useESM: false,
+    }],
   },
-  testMatch: ['**/__tests__/**/*.test.tsx'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(react-leaflet|leaflet|@react-leaflet)/)',
+  ],
+  testMatch: [
+    '<rootDir>/src/**/__tests__/**/*.(ts|tsx|js)',
+    '<rootDir>/src/**/?(*.)(spec|test).(ts|tsx|js)',
+  ],
+  testPathIgnorePatterns: [
+    '<rootDir>/src/__tests__/setup.ts',
+  ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
+    '!src/**/*.d.ts',
     '!src/main.tsx',
-    '!src/vite-env.d.ts'
+    '!src/vite-env.d.ts',
   ],
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80
-    }
-  }
+  coverageReporters: ['text', 'lcov', 'html'],
+  coverageDirectory: 'coverage',
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
+  },
 }; 

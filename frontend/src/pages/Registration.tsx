@@ -332,11 +332,10 @@ const Registration: React.FC = () => {
             open={customerModalOpen}
             destroyOnHidden={true}
             onCancel={handleCustomerModalCancel}
-            onOk={() => customerForm.submit()}
-            okText={editingCustomer ? 'Update' : 'Create'}
+            footer={null}
             width={600}
           >
-            <Card title={<span><ShopOutlined /> Customer Registration</span>} bordered={false}>
+            <Card bordered={false} style={{ marginBottom: 0 }}>
               <Form
                 form={customerForm}
                 layout="vertical"
