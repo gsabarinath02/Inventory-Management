@@ -27,4 +27,12 @@ body {
   padding: 24px;
   background: #fff;
   min-height: 280px;
+}
+
+/* Zebra striping for log tables */
+.even-row {
+  background-color: #fafafa;
+}
+.odd-row {
+  background-color: #fff;
 } 

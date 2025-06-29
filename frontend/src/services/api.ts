@@ -6,6 +6,7 @@ import {
   ProductFormData,
   InwardLog,
   SalesLog,
+  Order,
   Customer,
   Agency
 } from '../types';
@@ -63,6 +64,7 @@ export const stockAPI = {
 export const uploadAPI = {
   inward: (payload: { product_id: number; csv_text: string }) => api.post(API_ENDPOINTS.INWARD, payload),
   sales: (payload: { product_id: number; csv_text: string }) => api.post(API_ENDPOINTS.SALES, payload),
+  orders: (payload: { product_id: number; csv_text: string }) => api.post(API_ENDPOINTS.ORDERS, payload),
 };
 
 export const inwardAPI = {
@@ -92,6 +94,24 @@ export const salesAPI = {
     }),
 };
 
+export const ordersAPI = {
+  getAll: (productId: number, filters?: Record<string, any>) => api.get<Order[]>(`/products/${productId}/orders`, { params: filters }),
+  create: (data: Partial<Order>) => {
+    if (!data.product_id) throw new Error("product_id is required");
+    return api.post<Order>(`/products/${data.product_id}/orders`, data);
+  },
+  createBulk: (data: Partial<Order>[]) => {
+    if (!data.length || !data[0].product_id) throw new Error("product_id is required");
+    return api.post<Order[]>(`/products/${data[0].product_id}/orders/bulk`, { orders: data });
+  },
+  update: (logId: number, data: Partial<Order>) => api.put<Order>(`${API_ENDPOINTS.ORDERS}/${logId}`, data),
+  delete: (logId: number) => api.delete(`${API_ENDPOINTS.ORDERS}/${logId}`),
+  deleteBulk: (productId: number, date?: string, store_name?: string) => 
+    api.delete(`/products/${productId}/orders/bulk`, { 
+      params: { date, store_name } 
+    }),
+};
+
 export const getUsers = async () => {
   try {
     const response = await api.get('/users/');
@@ -108,6 +128,16 @@ export const getSalesLogs = async (productId: number) => {
     return response.data;
   } catch (error) {
     console.error("Error fetching sales logs:", error);
+    throw error;
+  }
+};
+
+export const getOrders = async (productId: number) => {
+  try {
+    const response = await api.get<Order[]>(`${API_ENDPOINTS.ORDERS}/${productId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching orders:", error);
     throw error;
   }
 };

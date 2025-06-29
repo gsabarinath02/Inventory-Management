@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
   STOCK: '/stock',
   INWARD: '/inward',
   SALES: '/sales',
+  ORDERS: '/orders',
 } as const;
 
 // Grid Configuration

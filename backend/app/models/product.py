@@ -22,4 +22,5 @@ class Product(Base):
     # Relationships
     inward_logs = relationship("InwardLog", back_populates="product", cascade="all, delete-orphan")
     sales_logs = relationship("SalesLog", back_populates="product", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="product", cascade="all, delete-orphan")
     product_color_stocks = relationship("ProductColorStock", back_populates="product", cascade="all, delete-orphan")

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useProducts } from '../../hooks/useProducts';
 import InwardLogTable from './InwardLogTable';
 import SalesLogTable from './SalesLogTable';
+import OrdersLogTable from './OrdersLogTable';
 import { Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
@@ -35,7 +36,7 @@ const Upload: React.FC = () => {
     return (
         <div style={{ padding: '24px' }}>
             <Title level={2}>Manage Product Data</Title>
-            <Text>Select a product to view and manage its inward/sales logs and stock.</Text>
+            <Text>Select a product to view and manage its inward/sales/orders logs and stock.</Text>
             
             <div style={{ marginTop: '24px' }}>
                 <Select
@@ -60,6 +61,7 @@ const Upload: React.FC = () => {
                     <Radio.Group onChange={handleLogTypeChange} value={selectedLogType} style={{ marginBottom: 16 }}>
                         <Radio.Button value="inward">Inward Log</Radio.Button>
                         <Radio.Button value="sales">Sales Log</Radio.Button>
+                        <Radio.Button value="orders">Orders</Radio.Button>
                     </Radio.Group>
 
                     <AnimatePresence mode="wait">
@@ -93,6 +95,28 @@ const Upload: React.FC = () => {
                             >
                                 <Title level={4}>Sales Log</Title>
                                 <SalesLogTable 
+                                    productId={selectedProduct.id} 
+                                    onDataChange={handleDataChange} 
+                                    availableColors={Array.isArray(selectedProduct.colors) ? selectedProduct.colors.map(c => c.color) : []}
+                                    availableSizes={Array.isArray(selectedProduct.sizes) ? selectedProduct.sizes : []}
+                                    colorCodePairs={Array.isArray(selectedProduct.colors) ? selectedProduct.colors : []}
+                                    isReadOnly={user?.role === 'viewer'}
+                                    allowedAgencies={Array.isArray(selectedProduct.allowed_agencies) ? selectedProduct.allowed_agencies : []}
+                                    allowedStores={Array.isArray(selectedProduct.allowed_stores) ? selectedProduct.allowed_stores : []}
+                                />
+                            </motion.div>
+                        )}
+
+                        {selectedLogType === 'orders' && (
+                            <motion.div
+                                key="orders"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <Title level={4}>Orders</Title>
+                                <OrdersLogTable 
                                     productId={selectedProduct.id} 
                                     onDataChange={handleDataChange} 
                                     availableColors={Array.isArray(selectedProduct.colors) ? selectedProduct.colors.map(c => c.color) : []}

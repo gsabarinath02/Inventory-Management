@@ -30,6 +30,7 @@ export interface DetailedStockData {
     product: Product;
     inward_logs: InwardLog[];
     sales_logs: SalesLog[];
+    orders: Order[];
 }
 
 export interface StockAPIResponse {
@@ -59,6 +60,20 @@ export interface InwardLog {
 
 // Sales types
 export interface SalesLog {
+    id: number;
+    product_id: number;
+    date?: string;
+    color?: string;
+    colour_code?: number;
+    agency_name?: string;
+    store_name?: string;
+    sizes: Record<string, number>;
+    operation: string;
+    created_at?: string;
+}
+
+// Orders types
+export interface Order {
     id: number;
     product_id: number;
     date?: string;
@@ -133,4 +148,9 @@ export interface Agency {
   region_covered: string;
   created_at: string;
   updated_at?: string;
+}
+
+export interface ColorCodePair {
+  color: string;
+  colour_code: number;
 } 

@@ -164,6 +164,7 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
     const handleAddClick = () => {
         setIsAdding(true);
         form.resetFields();
+        form.setFieldsValue({ date: dayjs() });
     };
 
     // Bulk paste functions
@@ -257,19 +258,55 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
             dataIndex: ['sizes', size],
             editable: true,
             render: (_: any, record: InwardLog) => (record.sizes && record.sizes[size]) || 0,
+            sorter: (a: InwardLog, b: InwardLog) => ((a.sizes && a.sizes[size]) || 0) - ((b.sizes && b.sizes[size]) || 0),
         }))
         : [];
 
     // Only the static columns have inputType/options
     const staticColumns = [
-        { title: 'Date', dataIndex: 'date', editable: true, inputType: 'date' as const, render: (text: string) => dayjs(text).format('YYYY-MM-DD')},
-        { title: 'Colour Code', dataIndex: 'colour_code', editable: true, inputType: 'number' as const, render: (code: number) => code !== undefined ? code : '' },
-        { title: 'Color', dataIndex: 'color', editable: true, inputType: 'select' as const, options: availableColors },
-        { title: 'Category', dataIndex: 'category', editable: true, inputType: 'select' as const, options: ['Supply', 'Return'] },
-        { title: 'Stakeholder', dataIndex: 'stakeholder_name', editable: true, inputType: 'text' as const },
+        {
+            title: 'Date',
+            dataIndex: 'date',
+            editable: true,
+            inputType: 'date' as const,
+            render: (text: string) => dayjs(text).format('YYYY-MM-DD'),
+            sorter: (a: InwardLog, b: InwardLog) => new Date(a.date || '1970-01-01').getTime() - new Date(b.date || '1970-01-01').getTime(),
+        },
+        {
+            title: 'Colour Code',
+            dataIndex: 'colour_code',
+            editable: true,
+            inputType: 'number' as const,
+            render: (code: number) => code !== undefined ? code : '',
+            sorter: (a: InwardLog, b: InwardLog) => (a.colour_code || 0) - (b.colour_code || 0),
+        },
+        {
+            title: 'Color',
+            dataIndex: 'color',
+            editable: true,
+            inputType: 'select' as const,
+            options: availableColors,
+            sorter: (a: InwardLog, b: InwardLog) => (a.color || '').localeCompare(b.color || ''),
+        },
+        {
+            title: 'Category',
+            dataIndex: 'category',
+            editable: true,
+            inputType: 'select' as const,
+            options: ['Supply', 'Return'],
+            sorter: (a: InwardLog, b: InwardLog) => (a.category || '').localeCompare(b.category || ''),
+        },
+        {
+            title: 'Stakeholder',
+            dataIndex: 'stakeholder_name',
+            editable: true,
+            inputType: 'text' as const,
+            sorter: (a: InwardLog, b: InwardLog) => (a.stakeholder_name || '').localeCompare(b.stakeholder_name || ''),
+        },
         {
             title: 'Operation',
             dataIndex: 'operation',
+            sorter: (a: InwardLog, b: InwardLog) => (a.operation || '').localeCompare(b.operation || ''),
             render: (_: any, record: InwardLog) => {
                 const editable = isEditing(record);
                 return editable ? (
@@ -568,7 +605,7 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                 bordered
                 dataSource={Array.isArray(logs) ? logs : []}
                 columns={mergedColumns}
-                rowClassName="editable-row"
+                rowClassName={(_, index) => (index % 2 === 0 ? 'even-row' : 'odd-row')}
                 pagination={{ onChange: cancel }}
                 loading={loading}
                 rowKey="id"
