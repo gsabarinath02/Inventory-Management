@@ -8,8 +8,17 @@ import enum
 from ... import models, schemas
 from ..logging_context import current_user_var
 
-# Add User and ProductColorStock to tracked models
-TRACKED_MODELS = (models.Product, models.InwardLog, models.SalesLog, models.User, models.ProductColorStock)
+# Add all models to tracked models
+TRACKED_MODELS = (
+    models.Product, 
+    models.InwardLog, 
+    models.SalesLog, 
+    models.User, 
+    models.ProductColorStock,
+    models.Order,
+    models.Customer,
+    models.Agency
+)
 
 def get_session(target_instance):
     """Gets the session from a target instance."""
@@ -48,9 +57,7 @@ def setup_audit_logging():
     @event.listens_for(Session, "after_flush")
     def after_flush(session, flush_context):
         user = current_user_var.get()
-        if not user:
-            return
-
+        
         # Debug: print what is being seen
         print("[AUDIT] session.new:", [type(obj).__name__ for obj in session.new])
         print("[AUDIT] session.dirty:", [type(obj).__name__ for obj in session.dirty])
@@ -69,8 +76,11 @@ def setup_audit_logging():
         for obj in session.new:
             if isinstance(obj, TRACKED_MODELS):
                 log_entry = schemas.AuditLogCreate(
-                    user_id=user.id, username=user.email, action="CREATE",
-                    entity=obj.__class__.__name__, entity_id=obj.id,
+                    user_id=user.id if user else None,
+                    username=user.email if user else "system",
+                    action="CREATE",
+                    entity=obj.__class__.__name__, 
+                    entity_id=obj.id,
                     new_value=json.dumps(model_to_dict(obj))
                 )
                 session.info['pending_audit_logs'].append(log_entry)
@@ -93,8 +103,11 @@ def setup_audit_logging():
                         if isinstance(new_val, (datetime.datetime, datetime.date)):
                             new_val = new_val.isoformat()
                         log_entry = schemas.AuditLogCreate(
-                            user_id=user.id, username=user.email, action="UPDATE",
-                            entity=obj.__class__.__name__, entity_id=obj.id,
+                            user_id=user.id if user else None,
+                            username=user.email if user else "system",
+                            action="UPDATE",
+                            entity=obj.__class__.__name__, 
+                            entity_id=obj.id,
                             field_changed=attr.key,
                             old_value=safe_json(old_val),
                             new_value=safe_json(new_val),
@@ -105,8 +118,11 @@ def setup_audit_logging():
         for obj in session.deleted:
             if isinstance(obj, TRACKED_MODELS):
                 log_entry = schemas.AuditLogCreate(
-                    user_id=user.id, username=user.email, action="DELETE",
-                    entity=obj.__class__.__name__, entity_id=obj.id,
+                    user_id=user.id if user else None,
+                    username=user.email if user else "system",
+                    action="DELETE",
+                    entity=obj.__class__.__name__, 
+                    entity_id=obj.id,
                     old_value=json.dumps(model_to_dict(obj))
                 )
                 session.info['pending_audit_logs'].append(log_entry)
@@ -119,21 +135,23 @@ def setup_audit_logging():
                 session.add(db_log)
             session.info['pending_audit_logs'] = []
 
+    # Add listeners for all tracked models
     @event.listens_for(models.Product, 'before_delete')
     @event.listens_for(models.InwardLog, 'before_delete')
     @event.listens_for(models.SalesLog, 'before_delete')
     @event.listens_for(models.User, 'before_delete')
     @event.listens_for(models.ProductColorStock, 'before_delete')
+    @event.listens_for(models.Order, 'before_delete')
+    @event.listens_for(models.Customer, 'before_delete')
+    @event.listens_for(models.Agency, 'before_delete')
     def before_delete_listener(mapper, connection, target):
         user = current_user_var.get()
-        if not user:
-            return
         session = object_session(target)
         if not session:
             return
         log_entry = schemas.AuditLogCreate(
-            user_id=user.id,
-            username=user.email,
+            user_id=user.id if user else None,
+            username=user.email if user else "system",
             action="DELETE",
             entity=target.__class__.__name__,
             entity_id=target.id,

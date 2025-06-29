@@ -8,7 +8,8 @@ from ...schemas.orders import OrderCreate, OrderUpdate, OrderResponse, OrderBulk
 from ...core.crud.audit_log import create_audit_log
 from ...schemas.audit_log import AuditLogCreate
 from ...api.deps import get_current_user
-from ...models.user import User
+from ...schemas.user import User
+from ...core.logging_context import current_user_var
 import json
 from fastapi.responses import StreamingResponse
 import io
@@ -34,6 +35,9 @@ async def export_orders_excel(
     current_user: User = Depends(get_current_user)
 ):
     """Export all orders as an Excel file with logo and custom headers"""
+    # Set user context for audit logging
+    current_user_var.set(current_user)
+    
     orders = await orders_crud.get_all_orders(db, skip=0, limit=10000)
 
     wb = Workbook()
@@ -128,6 +132,20 @@ async def export_orders_excel(
     wb.save(output)
     output.seek(0)
 
+    # Log the audit event
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="EXPORT_EXCEL",
+            entity="Order",
+            entity_id=0,
+            field_changed="orders_export",
+            new_value=f"Exported {len(orders)} orders to Excel"
+        )
+    )
+
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -144,6 +162,9 @@ async def create_order(
     """Create a new order for a product"""
     if order.product_id != product_id:
         raise HTTPException(status_code=400, detail="Product ID mismatch")
+    
+    # Set user context for audit logging
+    current_user_var.set(current_user)
     
     db_order = await orders_crud.create_order(db, order)
     
@@ -207,7 +228,7 @@ async def get_order(
 ):
     """Get a specific order by ID"""
     order = await orders_crud.get_order(db, order_id)
-    if not order:
+    if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
     return order
 
@@ -219,8 +240,11 @@ async def update_order(
     current_user: User = Depends(get_current_user)
 ):
     """Update an existing order"""
-    db_order = await orders_crud.update_order(db, order_id, order)
-    if not db_order:
+    # Set user context for audit logging
+    current_user_var.set(current_user)
+    
+    updated_order = await orders_crud.update_order(db, order_id, order)
+    if updated_order is None:
         raise HTTPException(status_code=404, detail="Order not found")
     
     # Log the audit event
@@ -231,11 +255,13 @@ async def update_order(
             username=current_user.email,
             action="UPDATE",
             entity="Order",
-            entity_id=order_id
+            entity_id=order_id,
+            field_changed="order",
+            new_value=str(order_id)
         )
     )
     
-    return db_order
+    return updated_order
 
 @router.delete("/orders/{order_id}")
 async def delete_order(
@@ -244,6 +270,9 @@ async def delete_order(
     current_user: User = Depends(get_current_user)
 ):
     """Delete an order"""
+    # Set user context for audit logging
+    current_user_var.set(current_user)
+    
     success = await orders_crud.delete_order(db, order_id)
     if not success:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -256,7 +285,9 @@ async def delete_order(
             username=current_user.email,
             action="DELETE",
             entity="Order",
-            entity_id=order_id
+            entity_id=order_id,
+            field_changed="order",
+            old_value=str(order_id)
         )
     )
     
@@ -269,32 +300,27 @@ async def create_orders_bulk(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create multiple orders for a product"""
-    # Validate that all orders have the correct product_id
-    for order in bulk_data.orders:
-        if order.product_id != product_id:
-            raise HTTPException(status_code=400, detail="Product ID mismatch in bulk data")
+    """Create multiple orders in bulk"""
+    # Set user context for audit logging
+    current_user_var.set(current_user)
     
-    try:
-        created_orders = await orders_crud.create_orders_bulk(db, bulk_data.orders)
-        
-        # Log the audit event
-        await create_audit_log(
-            db,
-            AuditLogCreate(
-                user_id=current_user.id,
-                username=current_user.email,
-                action="BULK_CREATE",
-                entity="Order",
-                entity_id=0,
-                field_changed="count",
-                new_value=str(len(created_orders))
-            )
+    result = await orders_crud.create_orders_bulk(db, product_id, bulk_data)
+    
+    # Log the audit event
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="BULK_CREATE",
+            entity="Order",
+            entity_id=product_id,
+            field_changed="bulk_orders",
+            new_value=f"Created {len(result.created_orders)} orders"
         )
-        
-        return OrderBulkResponse(rows_processed=len(created_orders))
-    except Exception as e:
-        return OrderBulkResponse(rows_processed=0, errors=[str(e)])
+    )
+    
+    return result
 
 @router.delete("/products/{product_id}/orders/bulk")
 async def delete_orders_bulk(
@@ -305,8 +331,11 @@ async def delete_orders_bulk(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Delete orders for a specific date and optionally agency/store"""
-    deleted_count = await orders_crud.delete_orders_bulk(db, date, agency_name, store_name)
+    """Delete multiple orders in bulk"""
+    # Set user context for audit logging
+    current_user_var.set(current_user)
+    
+    deleted_count = await orders_crud.delete_orders_bulk(db, product_id, date, agency_name, store_name)
     
     # Log the audit event
     await create_audit_log(
@@ -316,10 +345,10 @@ async def delete_orders_bulk(
             username=current_user.email,
             action="BULK_DELETE",
             entity="Order",
-            entity_id=0,
-            field_changed="count",
-            old_value=str(deleted_count)
+            entity_id=product_id,
+            field_changed="bulk_orders",
+            old_value=f"Deleted {deleted_count} orders for date {date}"
         )
     )
     
-    return {"message": f"Deleted {deleted_count} orders successfully"} 
+    return {"message": f"Deleted {deleted_count} orders", "deleted_count": deleted_count} 

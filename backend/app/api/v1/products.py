@@ -5,11 +5,13 @@ from sqlalchemy.exc import IntegrityError
 import json
 
 from ...database import get_db
-from ...api.deps import require_admin
+from ...api.deps import require_admin, get_current_user
 from ...schemas.product import Product, ProductOut, ProductUpdate, ProductCreate
+from ...schemas.user import User
 from ...core.crud.product import create_product, get_products, get_product, update_product, delete_product
 from ...core.crud.audit_log import create_audit_log
 from ...schemas.audit_log import AuditLogCreate
+from ...core.logging_context import current_user_var
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,16 +20,20 @@ router = APIRouter()
 @router.post("/", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
 async def create_new_product_route(
     payload: ProductCreate, 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     logger.debug(f"Received payload for product creation: {payload}")
     try:
+        # Set user context for audit logging
+        current_user_var.set(current_user)
+        
         product = await create_product(db=db, product=payload)
         await create_audit_log(
             db,
             AuditLogCreate(
-                user_id=None,  # System action
-                username="system",
+                user_id=current_user.id,
+                username=current_user.email,
                 action="PRODUCT_CREATE",
                 entity="Product",
                 entity_id=product.id,
@@ -79,9 +85,13 @@ async def read_product_route(
 async def update_existing_product_route(
     product_id: int, 
     product: ProductUpdate, 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     try:
+        # Set user context for audit logging
+        current_user_var.set(current_user)
+        
         old_product = await get_product(db, product_id=product_id)
         updated_product = await update_product(db, product_id=product_id, product=product)
         if updated_product is None:
@@ -89,8 +99,8 @@ async def update_existing_product_route(
         await create_audit_log(
             db,
             AuditLogCreate(
-                user_id=None,  # System action
-                username="system",
+                user_id=current_user.id,
+                username=current_user.email,
                 action="PRODUCT_UPDATE",
                 entity="Product",
                 entity_id=product_id,
@@ -110,9 +120,12 @@ async def update_existing_product_route(
 async def delete_existing_product_route(
     product_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(require_admin)
+    current_user: User = Depends(require_admin)
 ):
     try:
+        # Set user context for audit logging
+        current_user_var.set(current_user)
+        
         product = await get_product(db, product_id=product_id)
         success = await delete_product(db, product_id=product_id)
         if not success:
@@ -123,8 +136,8 @@ async def delete_existing_product_route(
             await create_audit_log(
                 db,
                 AuditLogCreate(
-                    user_id=None,  # System action
-                    username="system",
+                    user_id=current_user.id,
+                    username=current_user.email,
                     action="PRODUCT_DELETE",
                     entity="Product",
                     entity_id=product_id,
