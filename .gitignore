@@ -76,3 +76,15 @@ node_modules
 
 .cursor/
 .github/
+
+.cursorignore
+.cursorrules
+.cursorrules.md
+.cursorrules.txt
+.cursorrules.yml
+.cursorrules.yaml
+.cursorrules.json
+.cursorrules.jsonc
+.cursorrules.json5
+.cursorrules.jsonp.cursorignore
+.cursorrules
