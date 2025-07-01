@@ -5,6 +5,7 @@ import { useProducts } from '../../hooks/useProducts';
 import InwardLogTable from './InwardLogTable';
 import SalesLogTable from './SalesLogTable';
 import OrdersLogTable from './OrdersLogTable';
+import PendingOrdersLogTable from './PendingOrdersLogTable';
 import { Product } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
@@ -62,6 +63,7 @@ const Upload: React.FC = () => {
                         <Radio.Button value="inward">Inward Log</Radio.Button>
                         <Radio.Button value="sales">Sales Log</Radio.Button>
                         <Radio.Button value="orders">Orders</Radio.Button>
+                        <Radio.Button value="pending-orders">Pending Orders</Radio.Button>
                     </Radio.Group>
 
                     <AnimatePresence mode="wait">
@@ -125,6 +127,22 @@ const Upload: React.FC = () => {
                                     isReadOnly={user?.role === 'viewer'}
                                     allowedAgencies={Array.isArray(selectedProduct.allowed_agencies) ? selectedProduct.allowed_agencies : []}
                                     allowedStores={Array.isArray(selectedProduct.allowed_stores) ? selectedProduct.allowed_stores : []}
+                                />
+                            </motion.div>
+                        )}
+
+                        {selectedLogType === 'pending-orders' && (
+                            <motion.div
+                                key="pending-orders"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <Title level={4}>Pending Orders</Title>
+                                <PendingOrdersLogTable
+                                    productId={selectedProduct.id}
+                                    availableSizes={Array.isArray(selectedProduct.sizes) ? selectedProduct.sizes : []}
                                 />
                             </motion.div>
                         )}

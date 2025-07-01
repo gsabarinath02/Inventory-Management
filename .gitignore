@@ -73,3 +73,6 @@ Thumbs.db
 .env.*
 secrets.*
 node_modules
+
+.cursor/
+.github/

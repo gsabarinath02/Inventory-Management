@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import { Order, ColorCodePair } from '../../types';
 import { useOrders } from '../../hooks/useOrders';
 import { parseExcelData, ParsedExcelRow } from '../../utils';
-import { EditOutlined, DeleteOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 
 const { TextArea } = Input;
@@ -182,26 +182,6 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     const { token } = useAuth();
     console.log("JWT token used for Excel export:", token);
 
-    const printRef = useRef<HTMLDivElement>(null);
-    const handlePrint = () => {
-        if (!printRef.current) return;
-        const printContents = printRef.current.innerHTML;
-        const printWindow = window.open('', '', 'height=800,width=1200');
-        if (printWindow) {
-            printWindow.document.write('<html><head><title>Print Preview</title>');
-            printWindow.document.write('<style>body{margin:0;font-family:inherit;}table{width:100%;border-collapse:collapse;}td,th{border:1px solid #222;padding:4px;text-align:center;}img{max-width:100px;max-height:100px;}</style>');
-            printWindow.document.write('</head><body>');
-            printWindow.document.write(printContents);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-            }, 500);
-        }
-    };
-
     const isEditing = (record: Order) => record.id === editingKey;
 
     const edit = (record: Partial<Order> & { id: React.Key }) => {
@@ -356,6 +336,13 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             sorter: (a: Order, b: Order) => new Date(a.date || '1970-01-01').getTime() - new Date(b.date || '1970-01-01').getTime(),
         },
         {
+            title: 'Order Number',
+            dataIndex: 'order_number',
+            editable: false,
+            render: (num: number) => num !== undefined ? num : '',
+            sorter: (a: Order, b: Order) => (a.order_number || 0) - (b.order_number || 0),
+        },
+        {
             title: 'Colour Code',
             dataIndex: 'colour_code',
             editable: true,
@@ -390,19 +377,27 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         {
             title: 'Operation',
             dataIndex: 'operation',
-            sorter: (a: Order, b: Order) => (a.operation || '').localeCompare(b.operation || ''),
             render: (_: any, record: Order) => {
                 const editable = isEditing(record);
-                return editable ? (
-                    <span>
-                        <Button type="link" onClick={() => save(record.id)} style={{ marginRight: 8 }}>Save</Button>
-                        <Popconfirm title="Sure to cancel?" onConfirm={cancel}><Button type="link">Cancel</Button></Popconfirm>
-                    </span>
-                ) : (
+                if (editable) {
+                    return (
+                        <span>
+                            <Button type="link" onClick={() => save(record.id)} style={{ marginRight: 8 }}>Save</Button>
+                            <Popconfirm title="Sure to cancel?" onConfirm={cancel}><Button type="link">Cancel</Button></Popconfirm>
+                        </span>
+                    );
+                }
+                return (
                     <Space>
-                        <Button type="link" icon={<EditOutlined />} disabled={editingKey !== ''} onClick={() => edit(record)} />
-                        <Popconfirm title="Sure to delete?" onConfirm={() => deleteLog(record.id).then(onDataChange)}>
-                            <Button type="link" danger icon={<DeleteOutlined />} />
+                        <Tooltip title={record.fully_delivered ? 'This order has already been fully delivered. Please create a new order instead.' : 'Edit'}>
+                            <Button
+                                icon={<EditOutlined />}
+                                disabled={record.fully_delivered}
+                                onClick={() => edit(record)}
+                            />
+                        </Tooltip>
+                        <Popconfirm title="Are you sure to delete this order?" onConfirm={() => deleteLog(record.id)}>
+                            <Button icon={<DeleteOutlined />} danger />
                         </Popconfirm>
                     </Space>
                 );
@@ -412,12 +407,13 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
 
     let columns = [
         staticColumns[0], // Date
-        staticColumns[1], // Colour Code
-        staticColumns[2], // Color
+        staticColumns[1], // Order Number
+        staticColumns[2], // Colour Code
+        staticColumns[3], // Color
         ...sizeColumns,
-        staticColumns[3], // Agency
-        staticColumns[4], // Store
-        staticColumns[5], // Operation
+        staticColumns[4], // Agency
+        staticColumns[5], // Store
+        staticColumns[6], // Operation
     ];
 
     if (isReadOnly) {
@@ -683,39 +679,66 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         }
     };
 
+    const printRef = useRef<HTMLDivElement>(null);
+    const handlePrint = () => {
+        if (!printRef.current) return;
+        const printContents = printRef.current.innerHTML;
+        const printWindow = window.open('', '', 'height=800,width=1200');
+        if (printWindow) {
+            printWindow.document.write('<html><head><title>Print Preview</title>');
+            printWindow.document.write('<style>body{margin:0;font-family:Segoe UI,Arial,sans-serif;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #bdbdbd;padding:4px;text-align:center;}img{max-width:100px;max-height:100px;}@media print{button{display:none;}}</style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(printContents);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+    };
+
     return (
         <Form form={form} component={false}>
             {/* Bulk Paste Panel */}
             <Collapse style={{ marginBottom: 16 }}>
                 <Collapse.Panel header="Bulk Paste from Excel" key="bulk-paste">
-                    <div style={{ marginBottom: 16 }}>
-                        <TextArea
-                            placeholder="Paste your Excel cells here (tab-delimited)"
-                            rows={4}
-                            value={excelText}
-                            onChange={(e) => setExcelText(e.target.value)}
-                            style={{ marginBottom: 8 }}
-                        />
-                        <Space>
-                            <Button type="primary" onClick={handleBulkPasteLoad}>
-                                Load
-                            </Button>
-                            <Button 
-                                type="default" 
-                                onClick={() => setBulkActionModalVisible(true)}
-                                disabled={!showParsedRows || parsedRows.length === 0}
-                            >
-                                Save
-                            </Button>
-                            <Button onClick={() => {
-                                setExcelText('');
-                                setParsedRows([]);
-                                setShowParsedRows(false);
-                            }}>
-                                Clear
-                            </Button>
-                        </Space>
+                    <div style={{ marginBottom: 8, color: '#333', fontSize: 15, fontWeight: 500 }}>
+                        Paste your Excel cells here (tab-delimited). The first row should be column headers.<br/>
+                        <span style={{ fontWeight: 400, color: '#666', fontSize: 14 }}>Required columns: Date, Colour Code, Colour, S, M, L, XL, XXL, 3XL, 4XL, 5XL</span>
                     </div>
+                    <div style={{ marginBottom: 8, background: '#f8fafc', border: '1px solid #e0e0e0', borderRadius: 4, padding: 8, fontFamily: 'monospace', fontSize: 14 }}>
+                        Date	Colour Code	Colour	S	M	L	XL	XXL	3XL	4XL	5XL<br/>
+                        2024-07-01	1	Black	10	5	2	0	0	0	0	0<br/>
+                        2024-07-01	2	Red	8	6	1	0	0	0	0	0
+                    </div>
+                    <TextArea
+                        placeholder={`Date\tColour Code\tColour\tS\tM\tL\tXL\tXXL\t3XL\t4XL\t5XL\n2024-07-01\t1\tBlack\t10\t5\t2\t0\t0\t0\t0\t0`}
+                        rows={4}
+                        value={excelText}
+                        onChange={(e) => setExcelText(e.target.value)}
+                        style={{ marginBottom: 8 }}
+                    />
+                    <Space>
+                        <Button type="primary" onClick={handleBulkPasteLoad}>
+                            Load
+                        </Button>
+                        <Button 
+                            type="default" 
+                            onClick={() => setBulkActionModalVisible(true)}
+                            disabled={!showParsedRows || parsedRows.length === 0}
+                        >
+                            Save
+                        </Button>
+                        <Button onClick={() => {
+                            setExcelText('');
+                            setParsedRows([]);
+                            setShowParsedRows(false);
+                        }}>
+                            Clear
+                        </Button>
+                    </Space>
                     {renderParsedRows()}
                 </Collapse.Panel>
             </Collapse>
@@ -833,74 +856,91 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                 <p>Are you sure you want to delete all filtered records? This action cannot be undone.</p>
             </Modal>
 
+            {/* Download Preview Modal */}
             <Modal
-                title="Download Preview"
+                title={<div style={{fontWeight:600, fontSize:20, letterSpacing:1}}>Download Preview</div>}
                 open={downloadModalVisible}
                 onOk={handleExcelDownload}
                 onCancel={() => setDownloadModalVisible(false)}
                 okText="Download"
                 cancelText="Cancel"
-                width={1100}
+                width={1200}
                 footer={null}
             >
-                <div style={{ marginBottom: 16 }}>
-                    <label>Party Name: <Input value={headerFields.partyName} onChange={e => setHeaderFields(f => ({ ...f, partyName: e.target.value }))} style={{ width: 200, marginRight: 8 }} /></label>
-                    <label>Destination: <Input value={headerFields.destination} onChange={e => setHeaderFields(f => ({ ...f, destination: e.target.value }))} style={{ width: 200, marginRight: 8 }} /></label>
-                    <label>Style: <Input value={headerFields.style} onChange={e => setHeaderFields(f => ({ ...f, style: e.target.value }))} style={{ width: 120, marginRight: 8 }} /></label>
-                    <label>Code: <Input value={headerFields.code} onChange={e => setHeaderFields(f => ({ ...f, code: e.target.value }))} style={{ width: 80, marginRight: 8 }} /></label>
-                    <label>Date: <Input value={headerFields.date} onChange={e => setHeaderFields(f => ({ ...f, date: e.target.value }))} style={{ width: 120 }} /></label>
+                <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    <Input addonBefore="Party Name" value={headerFields.partyName} onChange={e => setHeaderFields(f => ({ ...f, partyName: e.target.value }))} style={{ width: 220 }} />
+                    <Input addonBefore="Destination" value={headerFields.destination} onChange={e => setHeaderFields(f => ({ ...f, destination: e.target.value }))} style={{ width: 220 }} />
+                    <Input addonBefore="Style" value={headerFields.style} onChange={e => setHeaderFields(f => ({ ...f, style: e.target.value }))} style={{ width: 160 }} />
+                    <Input addonBefore="Code" value={headerFields.code} onChange={e => setHeaderFields(f => ({ ...f, code: e.target.value }))} style={{ width: 120 }} />
+                    <Input addonBefore="Date" value={headerFields.date} onChange={e => setHeaderFields(f => ({ ...f, date: e.target.value }))} style={{ width: 160 }} />
                 </div>
-                <div ref={printRef} style={{ overflowX: 'auto', border: '1px solid #eee', background: '#fff', padding: 0 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontFamily: 'inherit' }}>
+                <div ref={printRef} style={{ overflowX: 'auto', border: '1px solid #e0e0e0', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0001', padding: 0 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', fontFamily: 'Segoe UI, Arial, sans-serif' }}>
+                        <thead>
+                            <tr>
+                                <td rowSpan={4} style={{ border: '1px solid #bdbdbd', textAlign: 'center', verticalAlign: 'middle', width: 140, background: '#f8fafc' }}>
+                                    <img src="/Backstitch-logo.png" alt="Logo" style={{ width: 100, height: 100, objectFit: 'contain', margin: 8 }} />
+                                </td>
+                                <td rowSpan={3} style={{ border: '1px solid #bdbdbd', textAlign: 'left', verticalAlign: 'top', fontWeight: 600, fontSize: 15, padding: 8, minWidth: 120, background: '#f8fafc', whiteSpace: 'pre-line' }}>
+                                    <div><b>Style</b></div>
+                                    <div style={{ marginTop: 4, fontWeight: 400, fontSize: 14 }}>{headerFields.style || ''}</div>
+                                    <div style={{ fontWeight: 400, fontSize: 13 }}>{headerFields.code || ''}</div>
+                                </td>
+                                <td colSpan={8} style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, fontSize: 18, background: '#f8fafc' }}>{headerFields.partyName || 'Party Name'}</td>
+                                <td colSpan={4} style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, fontSize: 18, background: '#f8fafc' }}>{headerFields.destination || 'Destination'}</td>
+                            </tr>
+                            <tr>
+                                <td colSpan={12} style={{ border: '1px solid #bdbdbd', height: 24, background: '#f8fafc' }}></td>
+                            </tr>
+                            <tr>
+                                <td colSpan={12} style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, fontSize: 15, background: '#f1f5f9' }}>Transport - With Pass</td>
+                            </tr>
+                            <tr>
+                                <td colSpan={8} style={{ border: '1px solid #bdbdbd', background: '#f8fafc' }}></td>
+                                <td colSpan={2} style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, background: '#f8fafc' }}>Date</td>
+                                <td colSpan={2} style={{ border: '1px solid #bdbdbd', textAlign: 'center', background: '#f8fafc' }}>{headerFields.date}</td>
+                            </tr>
+                            <tr style={{ background: '#e3eaf3' }}>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 60 }}>Order ID</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 90 }}>Date</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 80 }}>Colour Code</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 80 }}>Colour</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>S</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>M</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>L</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>XL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>XXL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>3XL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>4XL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>5XL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 60 }}>Total</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            <tr>
-                                <td rowSpan={4} style={{ verticalAlign: 'middle', background: '#fff', width: 140, minWidth: 120, border: '1px solid #222', padding: 0 }}>
-                                    <img src="/Backstitch-logo.png" alt="Logo" style={{ width: 110, height: 110, objectFit: 'contain', display: 'block', margin: '0 auto' }} />
-                                </td>
-                                <td rowSpan={2} colSpan={2} style={{ border: '1px solid #222', fontWeight: 'bold', fontSize: 16, background: '#fff', textAlign: 'center', verticalAlign: 'bottom' }}>Style</td>
-                                <td colSpan={availableSizes.length + 2} style={{ border: '1px solid #222', fontWeight: 'bold', fontSize: 18, background: '#fff', textAlign: 'center' }}>Party Name</td>
-                                <td colSpan={3} style={{ border: '1px solid #222', fontWeight: 'bold', fontSize: 18, background: '#fff', textAlign: 'center' }}>Destination</td>
-                            </tr>
-                            <tr>
-                                <td colSpan={availableSizes.length + 2} style={{ border: '1px solid #222', background: '#fff', textAlign: 'center', fontWeight: 'normal', height: 24 }}></td>
-                            </tr>
-                            <tr>
-                                <td rowSpan={2} colSpan={2} style={{ border: '1px solid #222', background: '#fff', textAlign: 'left', fontWeight: 600, fontSize: 15, paddingLeft: 8, verticalAlign: 'top' }}>
-                                    {headerFields.style && headerFields.style.split('\n').map((line, idx) => <div key={idx}>{line}</div>)}
-                                    {headerFields.code && <div style={{ fontWeight: 'bold' }}>{headerFields.code}</div>}
-                                </td>
-                                <td colSpan={availableSizes.length + 2} style={{ border: '1px solid #222', background: '#fff', textAlign: 'center', fontWeight: 'normal', height: 24 }}></td>
-                                <td colSpan={3} style={{ border: '1px solid #222', background: '#fff', textAlign: 'center', fontWeight: 'normal', height: 24 }}></td>
-                            </tr>
-                            <tr>
-                                <td colSpan={availableSizes.length + 2} style={{ border: '1px solid #222', background: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Transport - With Pass</td>
-                                <td colSpan={3} style={{ border: '1px solid #222', background: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Date<br/><span style={{ fontWeight: 600 }}>{headerFields.date}</span></td>
-                            </tr>
-                            <tr style={{ background: '#e6e6e6', height: 32 }}>
-                                <td style={{ fontWeight: 'bold', border: '1px solid #222', background: '#e6e6e6' }}>Color col</td>
-                                <td style={{ fontWeight: 'bold', border: '1px solid #222', background: '#e6e6e6' }}>Color</td>
-                                {availableSizes.map(size => <td key={size} style={{ fontWeight: 'bold', border: '1px solid #222', background: '#e6e6e6' }}>{size}</td>)}
-                                <td style={{ fontWeight: 'bold', border: '1px solid #222', background: '#e6e6e6' }}>Total</td>
-                            </tr>
-                            {logs.map((log, idx) => (
-                                <tr key={log.id} style={{ background: idx % 2 === 0 ? '#fafafa' : '#fff', height: 32 }}>
-                                    <td style={{ border: '1px solid #eee' }}>{log.colour_code || ''}</td>
-                                    <td style={{ border: '1px solid #eee' }}>{log.color || ''}</td>
-                                    {availableSizes.map(size => <td key={size} style={{ border: '1px solid #eee' }}>{(log.sizes && log.sizes[size]) || 0}</td>)}
-                                    <td style={{ border: '1px solid #eee' }}>{Object.values(log.sizes || {}).reduce((sum, v) => sum + v, 0)}</td>
+                            {Array.isArray(logs) && logs.map((row, idx) => (
+                                <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#f6f8fa' }}>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.id}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.date}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.colour_code}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.color}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.s || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.m || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.l || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.xl || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.xxl || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.['3xl'] || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.['4xl'] || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.['5xl'] || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center', fontWeight: 600 }}>{Object.values(row.sizes || {}).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0)}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, gap: 8 }}>
                     <Button onClick={() => setDownloadModalVisible(false)} style={{ marginRight: 8 }}>Cancel</Button>
-                    <Tooltip title="Print">
-                        <Button onClick={handlePrint} style={{ marginRight: 8 }} icon={<PrinterOutlined />} />
-                    </Tooltip>
-                    <Tooltip title="Download">
-                        <Button type="primary" onClick={handleExcelDownload} icon={<DownloadOutlined />} />
-                    </Tooltip>
+                    <Button onClick={handlePrint} style={{ background: '#f5f5f5', color: '#333', border: '1px solid #bdbdbd' }}>Print</Button>
+                    <Button type="primary" onClick={handleExcelDownload}>Download</Button>
                 </div>
             </Modal>
 

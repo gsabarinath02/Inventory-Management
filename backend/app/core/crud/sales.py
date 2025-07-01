@@ -17,7 +17,8 @@ def sa_obj_to_dict(obj):
             "date": obj.date,
             "agency_name": obj.agency_name,
             "store_name": obj.store_name,
-            "operation": obj.operation
+            "operation": obj.operation,
+            "order_number": getattr(obj, 'order_number', None),
         }
         return data
     except Exception:
@@ -147,4 +148,9 @@ async def delete_sales_log(db: AsyncSession, log_id: int):
 
 async def get_sales_log_by_id(db: AsyncSession, log_id: int):
     result = await db.execute(select(SalesLog).filter(SalesLog.id == log_id))
-    return result.scalar_one_or_none() 
+    return result.scalar_one_or_none()
+
+async def get_all_sales_logs(db: AsyncSession):
+    result = await db.execute(select(SalesLog))
+    logs = result.scalars().all()
+    return [SalesLogSchema.model_validate(sa_obj_to_dict(log)) for log in logs] 

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, Modal, message } from 'antd';
 import dayjs from 'dayjs';
 import { InwardLog } from '../../types';
 import { useInwardLogs } from '../../hooks/useInwardLogs';
 import { parseExcelData, ParsedExcelRow } from '../../utils';
-import { saveAs } from 'file-saver';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useAuth } from '../../context/AuthContext';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -74,29 +74,6 @@ interface InwardLogTableProps {
     isReadOnly: boolean;
 }
 
-// Helper to convert logs to CSV
-function logsToCsv(logs: InwardLog[], availableSizes: string[]): string {
-  const headers = [
-    'Date',
-    'Colour Code',
-    'Color',
-    ...availableSizes,
-    'Category',
-    'Stakeholder',
-    'Operation',
-  ];
-  const rows = logs.map(log => [
-    log.date || '',
-    log.colour_code || '',
-    log.color || '',
-    ...availableSizes.map(size => (log.sizes && log.sizes[size]) || 0),
-    log.category || '',
-    log.stakeholder_name || '',
-    log.operation || '',
-  ]);
-  return [headers, ...rows].map(r => r.join(',')).join('\n');
-}
-
 const InwardLogTable: React.FC<InwardLogTableProps> = ({ 
     productId, 
     onDataChange, 
@@ -120,6 +97,10 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
     const [bulkDeleteModalVisible, setBulkDeleteModalVisible] = useState(false);
     const [lastFilterParams, setLastFilterParams] = useState<Record<string, any>>({});
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+    const [downloadModalVisible, setDownloadModalVisible] = useState(false);
+    const [headerFields, setHeaderFields] = useState({ partyName: '', destination: '', style: '', code: '', date: '' });
+    const { token } = useAuth();
+    const printRef = useRef<HTMLDivElement>(null);
 
     const isEditing = (record: InwardLog) => record.id === editingKey;
 
@@ -497,12 +478,6 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         );
     };
 
-    const handleDownload = () => {
-        const csv = logsToCsv(logs, availableSizes);
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        saveAs(blob, `inward-log-${dayjs().format('YYYYMMDD')}.csv`);
-    };
-
     const handleBulkDeleteSelected = async () => {
         if (selectedRowKeys.length === 0) return;
         try {
@@ -515,39 +490,99 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
         }
     };
 
+    // Handler for Download button
+    const handleDownloadPreview = () => {
+        setDownloadModalVisible(true);
+    };
+
+    // Handler for Excel download
+    const handleExcelDownload = async () => {
+        try {
+            const response = await fetch('/api/v1/inward/export-excel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify(headerFields),
+            });
+            if (!response.ok) {
+                throw new Error('Failed to download Excel file');
+            }
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'inward-log.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            setDownloadModalVisible(false);
+        } catch (error) {
+            message.error('Failed to download Excel file');
+        }
+    };
+
+    const handlePrint = () => {
+        if (!printRef.current) return;
+        const printContents = printRef.current.innerHTML;
+        const printWindow = window.open('', '', 'height=800,width=1200');
+        if (printWindow) {
+            printWindow.document.write('<html><head><title>Print Preview</title>');
+            printWindow.document.write('<style>body{margin:0;font-family:Segoe UI,Arial,sans-serif;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #bdbdbd;padding:4px;text-align:center;}img{max-width:100px;max-height:100px;}@media print{button{display:none;}}</style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(printContents);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+    };
+
     return (
         <Form form={form} component={false}>
             {/* Bulk Paste Panel */}
             <Collapse style={{ marginBottom: 16 }}>
                 <Collapse.Panel header="Bulk Paste from Excel" key="bulk-paste">
-                    <div style={{ marginBottom: 16 }}>
-                        <TextArea
-                            placeholder="Paste your Excel cells here (tab-delimited)"
-                            rows={4}
-                            value={excelText}
-                            onChange={(e) => setExcelText(e.target.value)}
-                            style={{ marginBottom: 8 }}
-                        />
-                        <Space>
-                            <Button type="primary" onClick={handleBulkPasteLoad}>
-                                Load
-                            </Button>
-                            <Button 
-                                type="default" 
-                                onClick={() => setOverwriteModalVisible(true)}
-                                disabled={!showParsedRows || parsedRows.length === 0}
-                            >
-                                Save
-                            </Button>
-                            <Button onClick={() => {
-                                setExcelText('');
-                                setParsedRows([]);
-                                setShowParsedRows(false);
-                            }}>
-                                Clear
-                            </Button>
-                        </Space>
+                    <div style={{ marginBottom: 8, color: '#333', fontSize: 15, fontWeight: 500 }}>
+                        Paste your Excel cells here (tab-delimited). The first row should be column headers.<br/>
+                        <span style={{ fontWeight: 400, color: '#666', fontSize: 14 }}>Required columns: Date, Colour Code, Colour, S, M, L, XL, XXL, 3XL, 4XL, 5XL</span>
                     </div>
+                    <div style={{ marginBottom: 8, background: '#f8fafc', border: '1px solid #e0e0e0', borderRadius: 4, padding: 8, fontFamily: 'monospace', fontSize: 14 }}>
+                        Date	Colour Code	Colour	S	M	L	XL	XXL	3XL	4XL	5XL<br/>
+                        2024-07-01	1	Black	10	5	2	0	0	0	0	0<br/>
+                        2024-07-01	2	Red	8	6	1	0	0	0	0	0
+                    </div>
+                    <TextArea
+                        placeholder={`Date\tColour Code\tColour\tS\tM\tL\tXL\tXXL\t3XL\t4XL\t5XL\n2024-07-01\t1\tBlack\t10\t5\t2\t0\t0\t0\t0\t0`}
+                        rows={4}
+                        value={excelText}
+                        onChange={(e) => setExcelText(e.target.value)}
+                        style={{ marginBottom: 8 }}
+                    />
+                    <Space>
+                        <Button type="primary" onClick={handleBulkPasteLoad}>
+                            Load
+                        </Button>
+                        <Button 
+                            type="default" 
+                            onClick={() => setOverwriteModalVisible(true)}
+                            disabled={!showParsedRows || parsedRows.length === 0}
+                        >
+                            Save
+                        </Button>
+                        <Button onClick={() => {
+                            setExcelText('');
+                            setParsedRows([]);
+                            setShowParsedRows(false);
+                        }}>
+                            Clear
+                        </Button>
+                    </Space>
                     {renderParsedRows()}
                 </Collapse.Panel>
             </Collapse>
@@ -587,7 +622,7 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                             <Button type="primary" htmlType="submit">Apply</Button>
                         </Form.Item>
                         <Form.Item>
-                            <Button onClick={handleDownload} type="default">Download</Button>
+                            <Button onClick={handleDownloadPreview} type="default">Download</Button>
                         </Form.Item>
                         <Form.Item>
                             <Button danger type="default" onClick={() => setBulkDeleteModalVisible(true)} disabled={logs.length === 0}>Bulk Delete</Button>
@@ -661,6 +696,94 @@ const InwardLogTable: React.FC<InwardLogTableProps> = ({
                 cancelText="Cancel"
             >
                 <p>Are you sure you want to delete all filtered records? This action cannot be undone.</p>
+            </Modal>
+
+            {/* Download Preview Modal */}
+            <Modal
+                title={<div style={{fontWeight:600, fontSize:20, letterSpacing:1}}>Download Preview</div>}
+                open={downloadModalVisible}
+                onOk={handleExcelDownload}
+                onCancel={() => setDownloadModalVisible(false)}
+                okText="Download"
+                cancelText="Cancel"
+                width={1200}
+                footer={null}
+            >
+                <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    <Input addonBefore="Party Name" value={headerFields.partyName} onChange={e => setHeaderFields(f => ({ ...f, partyName: e.target.value }))} style={{ width: 220 }} />
+                    <Input addonBefore="Destination" value={headerFields.destination} onChange={e => setHeaderFields(f => ({ ...f, destination: e.target.value }))} style={{ width: 220 }} />
+                    <Input addonBefore="Style" value={headerFields.style} onChange={e => setHeaderFields(f => ({ ...f, style: e.target.value }))} style={{ width: 160 }} />
+                    <Input addonBefore="Code" value={headerFields.code} onChange={e => setHeaderFields(f => ({ ...f, code: e.target.value }))} style={{ width: 120 }} />
+                    <Input addonBefore="Date" value={headerFields.date} onChange={e => setHeaderFields(f => ({ ...f, date: e.target.value }))} style={{ width: 160 }} />
+                </div>
+                <div ref={printRef} style={{ overflowX: 'auto', border: '1px solid #e0e0e0', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0001', padding: 0 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', fontFamily: 'Segoe UI, Arial, sans-serif' }}>
+                        <thead>
+                            <tr>
+                                <td rowSpan={4} style={{ border: '1px solid #bdbdbd', textAlign: 'center', verticalAlign: 'middle', width: 140, background: '#f8fafc' }}>
+                                    <img src="/Backstitch-logo.png" alt="Logo" style={{ width: 100, height: 100, objectFit: 'contain', margin: 8 }} />
+                                </td>
+                                <td rowSpan={3} style={{ border: '1px solid #bdbdbd', textAlign: 'left', verticalAlign: 'top', fontWeight: 600, fontSize: 15, padding: 8, minWidth: 120, background: '#f8fafc', whiteSpace: 'pre-line' }}>
+                                    <div><b>Style</b></div>
+                                    <div style={{ marginTop: 4, fontWeight: 400, fontSize: 14 }}>{headerFields.style || ''}</div>
+                                    <div style={{ fontWeight: 400, fontSize: 13 }}>{headerFields.code || ''}</div>
+                                </td>
+                                <td colSpan={8} style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, fontSize: 18, background: '#f8fafc' }}>{headerFields.partyName || 'Party Name'}</td>
+                                <td colSpan={4} style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, fontSize: 18, background: '#f8fafc' }}>{headerFields.destination || 'Destination'}</td>
+                            </tr>
+                            <tr>
+                                <td colSpan={12} style={{ border: '1px solid #bdbdbd', height: 24, background: '#f8fafc' }}></td>
+                            </tr>
+                            <tr>
+                                <td colSpan={12} style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, fontSize: 15, background: '#f1f5f9' }}>Transport - With Pass</td>
+                            </tr>
+                            <tr>
+                                <td colSpan={8} style={{ border: '1px solid #bdbdbd', background: '#f8fafc' }}></td>
+                                <td colSpan={2} style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, background: '#f8fafc' }}>Date</td>
+                                <td colSpan={2} style={{ border: '1px solid #bdbdbd', textAlign: 'center', background: '#f8fafc' }}>{headerFields.date}</td>
+                            </tr>
+                            <tr style={{ background: '#e3eaf3' }}>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 60 }}>Order ID</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 90 }}>Date</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 80 }}>Colour Code</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 80 }}>Colour</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>S</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>M</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>L</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>XL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>XXL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>3XL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>4XL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 40 }}>5XL</th>
+                                <th style={{ border: '1px solid #bdbdbd', textAlign: 'center', fontWeight: 700, minWidth: 60 }}>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Array.isArray(logs) && logs.map((row, idx) => (
+                                <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#f6f8fa' }}>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.id}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.date}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.colour_code}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.color}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.s || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.m || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.l || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.xl || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.xxl || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.['3xl'] || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.['4xl'] || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center' }}>{row.sizes?.['5xl'] || 0}</td>
+                                    <td style={{ border: '1px solid #e0e0e0', textAlign: 'center', fontWeight: 600 }}>{Object.values(row.sizes || {}).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, gap: 8 }}>
+                    <Button onClick={() => setDownloadModalVisible(false)} style={{ marginRight: 8 }}>Cancel</Button>
+                    <Button onClick={handlePrint} style={{ background: '#f5f5f5', color: '#333', border: '1px solid #bdbdbd' }}>Print</Button>
+                    <Button type="primary" onClick={handleExcelDownload}>Download</Button>
+                </div>
             </Modal>
         </Form>
     );

@@ -14,5 +14,6 @@ class SalesLog(Base):
     agency_name = Column(String, nullable=True)
     store_name = Column(String, nullable=True)
     operation = Column(String, nullable=False)  # 'Inward' or 'Sale'
+    order_number = Column(Integer, nullable=True)
 
     product = relationship("Product", back_populates="sales_logs")

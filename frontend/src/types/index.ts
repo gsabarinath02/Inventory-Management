@@ -70,12 +70,14 @@ export interface SalesLog {
     sizes: Record<string, number>;
     operation: string;
     created_at?: string;
+    order_number?: number;
 }
 
 // Orders types
 export interface Order {
     id: number;
     product_id: number;
+    order_number: number;
     date?: string;
     color?: string;
     colour_code?: number;
@@ -84,6 +86,7 @@ export interface Order {
     sizes: Record<string, number>;
     operation: string;
     created_at?: string;
+    fully_delivered?: boolean;
 }
 
 // Form types

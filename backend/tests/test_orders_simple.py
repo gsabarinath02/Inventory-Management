@@ -2,16 +2,45 @@ import pytest
 from fastapi.testclient import TestClient
 import sys
 import os
+import asyncio
 
 # Add the app directory to Python path
 sys.path.insert(0, '/app')
 
 from app.main import app
+from app.database import AsyncSessionLocal, Base, engine
+from app.models import User
+from app.core.security import get_password_hash
 
 client = TestClient(app)
 
+async def create_admin_user():
+    """Create admin user for testing"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    async with AsyncSessionLocal() as session:
+        # Check if admin user already exists
+        result = await session.execute(
+            User.__table__.select().where(User.email == "admin@example.com")
+        )
+        existing = result.first()
+        if not existing:
+            user = User(
+                email="admin@example.com",
+                name="Admin User",
+                password_hash=get_password_hash("admin123"),
+                role="admin"
+            )
+            session.add(user)
+            await session.commit()
+            print("Created admin user for testing")
+
 def get_admin_token():
     """Get authentication token for the default admin user"""
+    # Create admin user first
+    asyncio.run(create_admin_user())
+    
     # Login as the default admin user
     login_payload = {
         "email": "admin@example.com",

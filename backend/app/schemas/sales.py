@@ -10,6 +10,7 @@ class SalesLogBase(BaseModel):
     agency_name: str | None = None
     store_name: str | None = None
     operation: str  # 'Inward' or 'Sale'
+    order_number: int | None = None
 
 class SalesLogCreate(SalesLogBase):
     pass

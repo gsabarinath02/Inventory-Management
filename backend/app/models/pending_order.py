@@ -1,13 +1,12 @@
 from .base import Base
 from sqlalchemy import Column, Integer, String, Date, JSON, ForeignKey, DateTime, UniqueConstraint
-from sqlalchemy.orm import relationship
 from datetime import datetime
 
-class Order(Base):
-    __tablename__ = "orders"
-    __table_args__ = (UniqueConstraint('order_number', 'financial_year', name='uq_order_number_finyear'),)
+class PendingOrder(Base):
+    __tablename__ = "pending_orders"
+    __table_args__ = (UniqueConstraint('order_number', 'financial_year', name='uq_pending_order_number_finyear'),)
     id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product_id = Column(Integer, nullable=False)
     date = Column(Date, nullable=False)
     colour_code = Column(Integer, nullable=True)
     color = Column(String, nullable=True)
@@ -18,6 +17,4 @@ class Order(Base):
     order_number = Column(Integer, nullable=False)
     financial_year = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    product = relationship("Product", back_populates="orders") 
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) 

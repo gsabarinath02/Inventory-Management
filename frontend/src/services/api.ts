@@ -112,6 +112,12 @@ export const ordersAPI = {
     }),
 };
 
+export const pendingOrdersAPI = {
+  getAll: (productId: number, filters?: Record<string, any>) => api.get<Order[]>(`/products/${productId}/pending-orders`, { params: filters }),
+  deliver: (pendingOrderId: number, delivered_sizes: Record<string, number>, delivery_date: string) =>
+    api.post(`/pending-orders/${pendingOrderId}/deliver`, { delivered_sizes, delivery_date }),
+};
+
 export const getUsers = async () => {
   try {
     const response = await api.get('/users/');

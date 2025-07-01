@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional, Dict, List
 from datetime import date
 
-class OrderBase(BaseModel):
+class PendingOrderBase(BaseModel):
     product_id: int
     color: str
     colour_code: Optional[int] = None
@@ -12,25 +12,24 @@ class OrderBase(BaseModel):
     store_name: Optional[str] = None
     operation: str = "Order"
 
-class OrderCreate(OrderBase):
+class PendingOrderCreate(PendingOrderBase):
     pass
 
-class OrderUpdate(OrderBase):
+class PendingOrderUpdate(PendingOrderBase):
     pass
 
-class OrderInDB(OrderBase):
+class PendingOrderInDB(PendingOrderBase):
     id: int
     order_number: int
     financial_year: str
-
     model_config = ConfigDict(from_attributes=True)
 
-class OrderResponse(OrderInDB):
-    fully_delivered: bool = False
+class PendingOrderResponse(PendingOrderInDB):
+    pass
 
-class OrderBulkCreate(BaseModel):
-    orders: List[OrderCreate]
+class PendingOrderBulkCreate(BaseModel):
+    orders: List[PendingOrderCreate]
 
-class OrderBulkResponse(BaseModel):
+class PendingOrderBulkResponse(BaseModel):
     rows_processed: int
     errors: Optional[List[str]] = None 

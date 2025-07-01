@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from . import auth, users, products, inward, sales, orders, stock, audit_logs, customers, agencies
+from .pending_orders import router as pending_orders_router
 
 api_router = APIRouter()
 
@@ -14,3 +15,4 @@ api_router.include_router(stock.router, prefix="/stock", tags=["stock"])
 api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
 api_router.include_router(customers.router, prefix="/customers", tags=["customers"])
 api_router.include_router(agencies.router, prefix="/agencies", tags=["agencies"])
+api_router.include_router(pending_orders_router, prefix="", tags=["pending-orders"])

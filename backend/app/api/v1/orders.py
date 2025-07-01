@@ -18,8 +18,16 @@ from openpyxl.drawing.image import Image as XLImage
 import os
 from pydantic import BaseModel
 from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+from ...schemas.pending_order import PendingOrderCreate, PendingOrderUpdate
+from ...core.crud import pending_order as pending_order_crud
+from sqlalchemy import select
+from app.models.pending_order import PendingOrder
+from app.models.sales import SalesLog
+import logging
+from ...core.crud.orders import is_fully_delivered
 
 router = APIRouter()
+logger = logging.getLogger("orders-mirroring")
 
 class OrderExportHeaders(BaseModel):
     party_name: str = ""
@@ -168,6 +176,10 @@ async def create_order(
     
     db_order = await orders_crud.create_order(db, order)
     
+    # Mirror to pending_orders
+    pending_order = PendingOrderCreate(**order.model_dump())
+    await pending_order_crud.create_pending_order(db, pending_order, db_order.order_number, db_order.financial_year)
+    
     # Log the audit event
     await create_audit_log(
         db,
@@ -207,7 +219,13 @@ async def get_orders(
         agency_name=agency_name,
         store_name=store_name
     )
-    return orders
+    # Add fully_delivered to each order
+    result = []
+    for order in orders:
+        order_dict = order.__dict__.copy()
+        order_dict['fully_delivered'] = await is_fully_delivered(db, order)
+        result.append(OrderResponse(**order_dict))
+    return result
 
 @router.get("/orders/", response_model=List[OrderResponse])
 async def get_all_orders(
@@ -239,14 +257,67 @@ async def update_order(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update an existing order"""
+    """Update an existing order with intelligent delivery logic"""
     # Set user context for audit logging
     current_user_var.set(current_user)
-    
+
+    # Fetch the original order
+    orig_order = await orders_crud.get_order(db, order_id)
+    if orig_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Sum delivered quantities from SalesLog for this order_number and product_id
+    delivered_logs = await db.execute(select(SalesLog).filter(SalesLog.order_number == orig_order.order_number, SalesLog.product_id == orig_order.product_id))
+    delivered_logs = delivered_logs.scalars().all()
+    delivered_total = {}
+    for log in delivered_logs:
+        for size, qty in (log.sizes or {}).items():
+            delivered_total[size] = delivered_total.get(size, 0) + qty
+    # Calculate updated order total per size
+    updated_sizes = order.sizes or {}
+    # Check if fully delivered
+    fully_delivered = all((delivered_total.get(size, 0) >= orig_order.sizes.get(size, 0) for size in orig_order.sizes or {}))
+    if fully_delivered:
+        raise HTTPException(status_code=400, detail="This order has already been fully delivered. Please create a new order instead.")
+    # Check if updated order total < delivered
+    for size, delivered_qty in delivered_total.items():
+        if updated_sizes.get(size, 0) < delivered_qty:
+            raise HTTPException(status_code=400, detail=f"Cannot reduce {size} below delivered quantity ({delivered_qty}).")
+    # Update the order
     updated_order = await orders_crud.update_order(db, order_id, order)
     if updated_order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
+        raise HTTPException(status_code=404, detail="Order not found after update")
+    # Mirror update to pending_orders (adjust pending quantities)
+    result = await db.execute(select(PendingOrder).filter(PendingOrder.order_number == updated_order.order_number, PendingOrder.product_id == updated_order.product_id))
+    db_pending_order = result.scalar_one_or_none()
+    if db_pending_order:
+        # Enforce: order.sizes[size] == pending_order.sizes[size] + delivered_total[size]
+        new_pending = {}
+        for size, updated_qty in updated_sizes.items():
+            delivered_qty = delivered_total.get(size, 0)
+            pending_qty = updated_qty - delivered_qty
+            if pending_qty > 0:
+                new_pending[size] = pending_qty
+        logger.info(f"[INVARIANT-DEBUG] Order #{updated_order.order_number} sizes: {updated_sizes}")
+        logger.info(f"[INVARIANT-DEBUG] Delivered totals: {delivered_total}")
+        logger.info(f"[INVARIANT-DEBUG] New pending: {new_pending}")
+        await pending_order_crud.update_pending_order(
+            db,
+            db_pending_order.id,
+            PendingOrderUpdate(
+                product_id=db_pending_order.product_id,
+                color=db_pending_order.color,
+                colour_code=db_pending_order.colour_code,
+                sizes=new_pending,
+                date=db_pending_order.date,
+                agency_name=db_pending_order.agency_name,
+                store_name=db_pending_order.store_name,
+                operation=db_pending_order.operation or "Order"
+            )
+        )
+        logger.info(f"Mirrored update to PendingOrder id={db_pending_order.id} for order_number={updated_order.order_number}")
+    else:
+        logger.warning(f"No PendingOrder found to mirror update for order_number={updated_order.order_number}")
     # Log the audit event
     await create_audit_log(
         db,
@@ -260,8 +331,10 @@ async def update_order(
             new_value=str(order_id)
         )
     )
-    
-    return updated_order
+    # After updating, add fully_delivered to response
+    updated_order_dict = updated_order.__dict__.copy()
+    updated_order_dict['fully_delivered'] = await is_fully_delivered(db, updated_order)
+    return OrderResponse(**updated_order_dict)
 
 @router.delete("/orders/{order_id}")
 async def delete_order(
@@ -273,9 +346,21 @@ async def delete_order(
     # Set user context for audit logging
     current_user_var.set(current_user)
     
+    # Find order to get order_number and financial_year
+    order = await orders_crud.get_order(db, order_id)
     success = await orders_crud.delete_order(db, order_id)
     if not success:
         raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Mirror delete to pending_orders
+    if order:
+        result = await db.execute(select(PendingOrder).filter(PendingOrder.order_number == order.order_number, PendingOrder.financial_year == order.financial_year))
+        db_pending_order = result.scalar_one_or_none()
+        if db_pending_order:
+            await pending_order_crud.delete_pending_order(db, db_pending_order.id)
+            logger.info(f"Mirrored delete to PendingOrder id={db_pending_order.id} for order_number={order.order_number}, financial_year={order.financial_year}")
+        else:
+            logger.warning(f"No PendingOrder found to mirror delete for order_number={order.order_number}, financial_year={order.financial_year}")
     
     # Log the audit event
     await create_audit_log(
@@ -304,8 +389,20 @@ async def create_orders_bulk(
     # Set user context for audit logging
     current_user_var.set(current_user)
     
-    result = await orders_crud.create_orders_bulk(db, product_id, bulk_data)
-    
+    result_orders = await orders_crud.create_orders_bulk(db, bulk_data.orders)
+    # Mirror to pending_orders for each created order, using the actual created order fields
+    for db_order in result_orders:
+        pending_order = PendingOrderCreate(
+            product_id=db_order.product_id,
+            color=db_order.color,
+            colour_code=db_order.colour_code,
+            sizes=db_order.sizes,
+            date=db_order.date,
+            agency_name=db_order.agency_name,
+            store_name=db_order.store_name,
+            operation=db_order.operation or "Order"
+        )
+        await pending_order_crud.create_pending_order(db, pending_order, db_order.order_number, db_order.financial_year)
     # Log the audit event
     await create_audit_log(
         db,
@@ -316,11 +413,11 @@ async def create_orders_bulk(
             entity="Order",
             entity_id=product_id,
             field_changed="bulk_orders",
-            new_value=f"Created {len(result.created_orders)} orders"
+            new_value=f"Created {len(result_orders)} orders"
         )
     )
     
-    return result
+    return OrderBulkResponse(rows_processed=len(result_orders), errors=None)
 
 @router.delete("/products/{product_id}/orders/bulk")
 async def delete_orders_bulk(
@@ -335,7 +432,7 @@ async def delete_orders_bulk(
     # Set user context for audit logging
     current_user_var.set(current_user)
     
-    deleted_count = await orders_crud.delete_orders_bulk(db, product_id, date, agency_name, store_name)
+    deleted_count = await orders_crud.delete_orders_bulk(db, date, agency_name, store_name)
     
     # Log the audit event
     await create_audit_log(
