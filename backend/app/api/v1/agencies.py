@@ -7,7 +7,9 @@ from ...core.crud.agency import (
     create_agency, get_agency, get_agencies, update_agency, 
     delete_agency, get_agency_names, get_agency_by_name
 )
+from ...core.crud.audit_log import create_audit_log
 from ...schemas.agency import Agency, AgencyCreate, AgencyUpdate
+from ...schemas.audit_log import AuditLogCreate
 
 router = APIRouter()
 
@@ -23,7 +25,20 @@ async def create_new_agency(
     if existing_agency:
         raise HTTPException(status_code=400, detail="Agency name already exists")
     
-    return await create_agency(db, agency)
+    created_agency = await create_agency(db, agency)
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="CREATE",
+            entity="Agency",
+            entity_id=created_agency.id,
+            field_changed="agency",
+            new_value=f"Created agency: {created_agency.agency_name}"
+        )
+    )
+    return created_agency
 
 @router.get("/", response_model=List[Agency])
 async def read_agencies(
@@ -79,6 +94,19 @@ async def update_existing_agency(
     updated_agency = await update_agency(db, agency_id, agency_update)
     if updated_agency is None:
         raise HTTPException(status_code=404, detail="Agency not found")
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="UPDATE",
+            entity="Agency",
+            entity_id=agency_id,
+            field_changed="agency",
+            old_value=f"Old: {existing_agency.agency_name}",
+            new_value=f"Updated: {updated_agency.agency_name}"
+        )
+    )
     return updated_agency
 
 @router.delete("/{agency_id}")
@@ -97,4 +125,17 @@ async def delete_existing_agency(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete agency")
     
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="DELETE",
+            entity="Agency",
+            entity_id=agency_id,
+            field_changed="agency",
+            old_value=f"Deleted agency: {existing_agency.agency_name}",
+            new_value=None
+        )
+    )
     return {"message": "Agency deleted successfully"} 

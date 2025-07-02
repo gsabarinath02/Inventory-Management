@@ -378,6 +378,20 @@ async def export_inward_excel(
 ):
     """Export all inward logs as an Excel file with logo and custom headers"""
     current_user_var.set(current_user)
+    # Audit log for export
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="EXPORT_EXCEL",
+            entity="InwardLog",
+            entity_id=0,
+            field_changed=None,
+            old_value=None,
+            new_value=f"Exported inward logs with headers: {headers.dict()}"
+        )
+    )
     inward_logs = await inward_crud.get_all_inward_logs(db)
 
     wb = Workbook()

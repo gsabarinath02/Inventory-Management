@@ -46,6 +46,21 @@ async def export_orders_excel(
     # Set user context for audit logging
     current_user_var.set(current_user)
     
+    # Audit log for export
+    await create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="EXPORT_EXCEL",
+            entity="Order",
+            entity_id=0,
+            field_changed=None,
+            old_value=None,
+            new_value=f"Exported orders with headers: {headers.dict()}"
+        )
+    )
+    
     orders = await orders_crud.get_all_orders(db, skip=0, limit=10000)
 
     wb = Workbook()

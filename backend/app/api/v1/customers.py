@@ -7,7 +7,9 @@ from ...core.crud.customer import (
     create_customer, get_customer, get_customers, update_customer, 
     delete_customer, get_customer_names, get_customer_by_store_name
 )
+from ...core.crud.audit_log import create_audit_log
 from ...schemas.customer import Customer, CustomerCreate, CustomerUpdate
+from ...schemas.audit_log import AuditLogCreate
 import logging
 
 router = APIRouter()
@@ -24,7 +26,20 @@ async def create_new_customer(
         existing_customer = await get_customer_by_store_name(db, customer.store_name)
         if existing_customer:
             raise HTTPException(status_code=400, detail="Store name already exists")
-        return await create_customer(db, customer)
+        created_customer = await create_customer(db, customer)
+        await create_audit_log(
+            db,
+            AuditLogCreate(
+                user_id=current_user.id,
+                username=current_user.email,
+                action="CREATE",
+                entity="Customer",
+                entity_id=created_customer.id,
+                field_changed="customer",
+                new_value=f"Created customer: {created_customer.store_name}"
+            )
+        )
+        return created_customer
     except Exception as e:
         print(f"[ERROR] Failed to create customer. Data: {customer.dict()} Error: {e}")
         raise
@@ -82,6 +97,19 @@ async def update_existing_customer(
         updated_customer = await update_customer(db, customer_id, customer_update)
         if updated_customer is None:
             raise HTTPException(status_code=404, detail="Customer not found")
+        await create_audit_log(
+            db,
+            AuditLogCreate(
+                user_id=current_user.id,
+                username=current_user.email,
+                action="UPDATE",
+                entity="Customer",
+                entity_id=customer_id,
+                field_changed="customer",
+                old_value=f"Old: {existing_customer.store_name}",
+                new_value=f"Updated: {updated_customer.store_name}"
+            )
+        )
         return updated_customer
     except Exception as e:
         print(f"[ERROR] Failed to update customer. ID: {customer_id} Data: {customer_update.dict()} Error: {e}")
@@ -102,6 +130,19 @@ async def delete_existing_customer(
         success = await delete_customer(db, customer_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete customer")
+        await create_audit_log(
+            db,
+            AuditLogCreate(
+                user_id=current_user.id,
+                username=current_user.email,
+                action="DELETE",
+                entity="Customer",
+                entity_id=customer_id,
+                field_changed="customer",
+                old_value=f"Deleted customer: {existing_customer.store_name}",
+                new_value=None
+            )
+        )
         return {"message": "Customer deleted successfully"}
     except Exception as e:
         print(f"[ERROR] Failed to delete customer. ID: {customer_id} Error: {e}")

@@ -17,7 +17,8 @@ TRACKED_MODELS = (
     models.ProductColorStock,
     models.Order,
     models.Customer,
-    models.Agency
+    models.Agency,
+    models.PendingOrder,
 )
 
 def get_session(target_instance):
@@ -144,6 +145,7 @@ def setup_audit_logging():
     @event.listens_for(models.Order, 'before_delete')
     @event.listens_for(models.Customer, 'before_delete')
     @event.listens_for(models.Agency, 'before_delete')
+    @event.listens_for(models.PendingOrder, 'before_delete')
     def before_delete_listener(mapper, connection, target):
         user = current_user_var.get()
         session = object_session(target)

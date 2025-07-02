@@ -56,6 +56,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       onCancel={handleCancel}
       footer={null}
       width={FORM_CONFIG.MODAL_WIDTH}
+      bodyStyle={{ padding: 24, maxHeight: FORM_CONFIG.MODAL_MAX_HEIGHT, overflowY: 'auto' }}
       destroyOnHidden
     >
       <ProductForm

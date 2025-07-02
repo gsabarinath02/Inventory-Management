@@ -469,6 +469,7 @@ async def export_sales_excel(
     wb.save(output)
     output.seek(0)
 
+    # Audit log for export
     await create_audit_log(
         db,
         AuditLogCreate(
@@ -477,8 +478,9 @@ async def export_sales_excel(
             action="EXPORT_EXCEL",
             entity="SalesLog",
             entity_id=0,
-            field_changed="sales_export",
-            new_value=f"Exported {len(sales_logs)} sales logs to Excel"
+            field_changed=None,
+            old_value=None,
+            new_value=f"Exported sales logs with headers: {headers.dict()}"
         )
     )
 

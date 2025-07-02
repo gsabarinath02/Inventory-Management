@@ -21,6 +21,16 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from app.models.base import Base
+from app.models.agency import *
+from app.models.audit_log import *
+from app.models.customer import *
+from app.models.inward import *
+from app.models.orders import *
+from app.models.pending_order import *
+from app.models.product import *
+from app.models.product_color_stock import *
+from app.models.sales import *
+from app.models.user import *
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

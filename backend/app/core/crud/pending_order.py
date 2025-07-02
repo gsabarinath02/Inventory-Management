@@ -9,6 +9,8 @@ from app.schemas.sales import SalesLogCreate
 from app.models.orders import Order
 from app.models.sales import SalesLog
 import logging
+from app.core.crud.audit_log import create_audit_log
+from app.schemas.audit_log import AuditLogCreate
 
 async def create_pending_order(db: AsyncSession, pending_order: PendingOrderCreate, order_number: int, financial_year: str) -> PendingOrder:
     db_pending_order = PendingOrder(
@@ -96,6 +98,21 @@ async def deliver_pending_order(db: AsyncSession, pending_order: PendingOrder, d
         logger.info(f"[INVARIANT-DEBUG] Order #{db_order.order_number} sizes: {order_sizes}")
         logger.info(f"[INVARIANT-DEBUG] Delivered totals: {delivered_total}")
         logger.info(f"[INVARIANT-DEBUG] New pending: {new_pending}")
+        # --- AUDIT LOG for delivery ---
+        await create_audit_log(
+            db,
+            AuditLogCreate(
+                user_id=None,  # You can pass user info if available
+                username="system",
+                action="DELIVER_PENDING_ORDER",
+                entity="PendingOrder",
+                entity_id=pending_order.id,
+                field_changed=None,
+                old_value=str(original_sizes),
+                new_value=str(delivered),
+            )
+        )
+        # ---
         if not new_pending:
             await db.delete(pending_order)
             await db.commit()
@@ -107,6 +124,21 @@ async def deliver_pending_order(db: AsyncSession, pending_order: PendingOrder, d
             return {"status": "partially_delivered", "remaining": new_pending}
     else:
         # If order not found, fallback to old logic
+        # --- AUDIT LOG for delivery ---
+        await create_audit_log(
+            db,
+            AuditLogCreate(
+                user_id=None,
+                username="system",
+                action="DELIVER_PENDING_ORDER",
+                entity="PendingOrder",
+                entity_id=pending_order.id,
+                field_changed=None,
+                old_value=str(original_sizes),
+                new_value=str(delivered),
+            )
+        )
+        # ---
         if not remaining:
             await db.delete(pending_order)
             await db.commit()

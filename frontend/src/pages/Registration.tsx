@@ -306,6 +306,13 @@ const Registration: React.FC = () => {
       label: 'Customers',
       children: (
         <>
+          <Alert
+            message="Note"
+            description="Customers and agencies must be registered here before they can be referenced in products, orders, or logs. If you don't see the customer or agency you want in other forms, please register it first."
+            type="info"
+            showIcon
+            style={{ marginBottom: 16, background: '#f6f8fa', border: '1px solid #e5e7eb', borderRadius: 8 }}
+          />
           <Button 
             type="primary" 
             icon={<PlusOutlined />} 
@@ -465,6 +472,13 @@ const Registration: React.FC = () => {
       label: 'Agencies',
       children: (
         <>
+          <Alert
+            message="Note"
+            description="Customers and agencies must be registered here before they can be referenced in products, orders, or logs. If you don't see the customer or agency you want in other forms, please register it first."
+            type="info"
+            showIcon
+            style={{ marginBottom: 16, background: '#f6f8fa', border: '1px solid #e5e7eb', borderRadius: 8 }}
+          />
           <Button 
             type="primary" 
             icon={<PlusOutlined />} 

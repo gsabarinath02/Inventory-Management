@@ -16,6 +16,8 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.drawing.image import Image as XLImage
 import io, os
 from pydantic import BaseModel
+from ...core.crud import audit_log as audit_log_crud
+from ...schemas.audit_log import AuditLogCreate
 
 router = APIRouter()
 
@@ -61,6 +63,20 @@ async def export_pending_orders_excel(
     current_user: User = Depends(get_current_user)
 ):
     current_user_var.set(current_user)
+    # Audit log for export
+    await audit_log_crud.create_audit_log(
+        db,
+        AuditLogCreate(
+            user_id=current_user.id,
+            username=current_user.email,
+            action="EXPORT_EXCEL",
+            entity="PendingOrder",
+            entity_id=0,
+            field_changed=None,
+            old_value=None,
+            new_value=f"Exported pending orders with headers: {headers.dict()}"
+        )
+    )
     pending_orders = await pending_order_crud.get_all_pending_orders(db)
 
     wb = Workbook()

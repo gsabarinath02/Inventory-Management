@@ -22,7 +22,8 @@ export const GRID_CONFIG = {
 
 // Form Configuration
 export const FORM_CONFIG = {
-  MODAL_WIDTH: 600,
+  MODAL_WIDTH: 800,
+  MODAL_MAX_HEIGHT: 600,
   LAYOUT: {
     labelCol: { span: 6 },
     wrapperCol: { span: 18 },
