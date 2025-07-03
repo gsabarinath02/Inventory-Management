@@ -704,6 +704,15 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             {/* Bulk Paste Panel */}
             <Collapse style={{ marginBottom: 16 }}>
                 <Collapse.Panel header="Bulk Paste from Excel" key="bulk-paste">
+                    <div style={{ marginBottom: 8, color: '#333', fontSize: 15, fontWeight: 500 }}>
+                        Paste your Excel cells here (tab-delimited). The first row should be column headers.<br/>
+                        <span style={{ fontWeight: 400, color: '#666', fontSize: 14 }}>Required columns: Date, Colour Code, Colour, S, M, L, XL, XXL, 3XL, 4XL, 5XL</span>
+                    </div>
+                    <div style={{ marginBottom: 8, background: '#f8fafc', border: '1px solid #e0e0e0', borderRadius: 4, padding: 8, fontFamily: 'monospace', fontSize: 14 }}>
+                        Date	Colour Code	Colour	S	M	L	XL	XXL	3XL	4XL	5XL<br/>
+                        2024-07-01	1	Black	10	5	2	0	0	0	0	0<br/>
+                        2024-07-01	2	Red	8	6	1	0	0	0	0	0
+                    </div>
                     <TextArea
                         placeholder={`Date\tColour Code\tColour\tS\tM\tL\tXL\tXXL\t3XL\t4XL\t5XL\n2024-07-01\t1\tBlack\t10\t5\t2\t0\t0\t0\t0\t0`}
                         rows={4}

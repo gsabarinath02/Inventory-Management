@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, Modal, message, Tooltip } from 'antd';
+import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, Modal, message } from 'antd';
 import dayjs from 'dayjs';
-import { Order, ColorCodePair } from '../../types';
-import { useOrders } from '../../hooks/useOrders';
+import { SalesLog } from '../../types';
+import { useSalesLogs } from '../../hooks/useSalesLogs';
 import { parseExcelData, ParsedExcelRow } from '../../utils';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
@@ -14,13 +14,18 @@ interface EditableCellProps {
   dataIndex: string;
   title: any;
   inputType: 'number' | 'text' | 'date' | 'select';
-  record: Order;
+  record: SalesLog;
   index: number;
   children: React.ReactNode;
   options?: string[];
 }
 
-interface OrdersLogTableProps {
+interface ColorCodePair {
+  color: string;
+  colour_code: number;
+}
+
+interface SalesLogTableProps {
     productId: number;
     onDataChange: () => void;
     availableColors: string[];
@@ -146,7 +151,7 @@ const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair
   );
 };
 
-const OrdersLogTable: React.FC<OrdersLogTableProps> = ({ 
+const SalesLogTable: React.FC<SalesLogTableProps> = ({ 
     productId, 
     onDataChange, 
     availableColors, 
@@ -157,7 +162,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     allowedStores
 }) => {
     if (typeof productId !== 'number' || isNaN(productId)) return null;
-    const { logs, loading, createLog, createLogsBulk, deleteLogsBulk, updateLog, deleteLog, fetchLogs } = useOrders(productId);
+    const { logs, loading, createLog, createLogsBulk, deleteLogsBulk, updateLog, deleteLog, fetchLogs } = useSalesLogs(productId);
     const [form] = Form.useForm();
     const [editingKey, setEditingKey] = useState<React.Key>('');
     const [isAdding, setIsAdding] = useState(false);
@@ -172,19 +177,13 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     const [lastFilterParams, setLastFilterParams] = useState<Record<string, any>>({});
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [downloadModalVisible, setDownloadModalVisible] = useState(false);
-    const [headerFields, setHeaderFields] = useState({
-        partyName: '',
-        destination: '',
-        style: '',
-        code: '',
-        date: dayjs().format('YYYY-MM-DD'),
-    });
+    const [headerFields, setHeaderFields] = useState({ partyName: '', destination: '', style: '', code: '', date: '' });
     const { token } = useAuth();
-    console.log("JWT token used for Excel export:", token);
+    const printRef = useRef<HTMLDivElement>(null);
 
-    const isEditing = (record: Order) => record.id === editingKey;
+    const isEditing = (record: SalesLog) => record.id === editingKey;
 
-    const edit = (record: Partial<Order> & { id: React.Key }) => {
+    const edit = (record: Partial<SalesLog> & { id: React.Key }) => {
         form.setFieldsValue({ ...record, date: record.date ? dayjs(record.date, 'YYYY-MM-DD') : null });
         setEditingKey(record.id);
     };
@@ -194,7 +193,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         setEditingKey('');
     };
 
-    const save = async (key: React.Key, row?: Partial<Order>) => {
+    const save = async (key: React.Key, row?: Partial<SalesLog>) => {
         try {
             if (key === 'new_row') {
                 // row already contains sizes
@@ -212,7 +211,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                     sizes: values.sizes ? Object.fromEntries(Object.entries(values.sizes).map(([k, v]) => [k, Number(v)])) : undefined,
                     date: values.date ? dayjs(values.date).format('YYYY-MM-DD') : undefined,
                     product_id: productId,
-                    operation: 'Order'
+                    operation: 'Sale'
                 };
                 await updateLog(key as number, payload);
             }
@@ -226,6 +225,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     const handleAddClick = () => {
         setIsAdding(true);
         form.resetFields();
+        form.setFieldsValue({ date: dayjs() });
     };
 
     // Bulk paste functions
@@ -278,11 +278,11 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         }
 
         try {
-            // Convert parsed rows to Order format
+            // Convert parsed rows to SalesLog format
             const logsToCreate = parsedRows.map(row => ({
                 ...row,
                 product_id: productId,
-                operation: 'Order',
+                operation: 'Sale',
                 date: row.date ? dayjs(row.date).format('YYYY-MM-DD') : undefined,
                 sizes: row.sizes ? Object.fromEntries(Object.entries(row.sizes).map(([k, v]) => [k, Number(v)])) : undefined,
             }));
@@ -308,7 +308,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             setShowParsedRows(false);
             setOverwriteModalVisible(false);
             
-            message.success('Successfully saved orders');
+            message.success('Successfully saved sales logs');
         } catch (error) {
             message.error('Failed to save logs');
         }
@@ -320,8 +320,8 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             title: size,
             dataIndex: ['sizes', size], // Use nested dataIndex for consistency
             editable: true,
-            render: (_: any, record: Order) => (record.sizes && record.sizes[size]) || 0,
-            sorter: (a: Order, b: Order) => ((a.sizes && a.sizes[size]) || 0) - ((b.sizes && b.sizes[size]) || 0),
+            render: (_: any, record: SalesLog) => (record.sizes && record.sizes[size]) || 0,
+            sorter: (a: SalesLog, b: SalesLog) => ((a.sizes && a.sizes[size]) || 0) - ((b.sizes && b.sizes[size]) || 0),
         }))
         : [];
 
@@ -333,14 +333,13 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             editable: true,
             inputType: 'date' as const,
             render: (text: string) => dayjs(text).format('YYYY-MM-DD'),
-            sorter: (a: Order, b: Order) => new Date(a.date || '1970-01-01').getTime() - new Date(b.date || '1970-01-01').getTime(),
+            sorter: (a: SalesLog, b: SalesLog) => new Date(a.date || '1970-01-01').getTime() - new Date(b.date || '1970-01-01').getTime(),
         },
         {
             title: 'Order Number',
             dataIndex: 'order_number',
-            editable: false,
             render: (num: number) => num !== undefined ? num : '',
-            sorter: (a: Order, b: Order) => (a.order_number || 0) - (b.order_number || 0),
+            sorter: (a: SalesLog, b: SalesLog) => (a.order_number || 0) - (b.order_number || 0),
         },
         {
             title: 'Colour Code',
@@ -348,7 +347,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             editable: true,
             inputType: 'number' as const,
             render: (code: number) => code !== undefined ? code : '',
-            sorter: (a: Order, b: Order) => (a.colour_code || 0) - (b.colour_code || 0),
+            sorter: (a: SalesLog, b: SalesLog) => (a.colour_code || 0) - (b.colour_code || 0),
         },
         {
             title: 'Color',
@@ -356,7 +355,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             editable: true,
             inputType: 'select' as const,
             options: availableColors,
-            sorter: (a: Order, b: Order) => (a.color || '').localeCompare(b.color || ''),
+            sorter: (a: SalesLog, b: SalesLog) => (a.color || '').localeCompare(b.color || ''),
         },
         {
             title: 'Agency',
@@ -364,7 +363,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             editable: true,
             inputType: 'select' as const,
             options: allowedAgencies,
-            sorter: (a: Order, b: Order) => (a.agency_name || '').localeCompare(b.agency_name || ''),
+            sorter: (a: SalesLog, b: SalesLog) => (a.agency_name || '').localeCompare(b.agency_name || ''),
         },
         {
             title: 'Store',
@@ -372,32 +371,24 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             editable: true,
             inputType: 'select' as const,
             options: allowedStores,
-            sorter: (a: Order, b: Order) => (a.store_name || '').localeCompare(b.store_name || ''),
+            sorter: (a: SalesLog, b: SalesLog) => (a.store_name || '').localeCompare(b.store_name || ''),
         },
         {
             title: 'Operation',
             dataIndex: 'operation',
-            render: (_: any, record: Order) => {
+            sorter: (a: SalesLog, b: SalesLog) => (a.operation || '').localeCompare(b.operation || ''),
+            render: (_: any, record: SalesLog) => {
                 const editable = isEditing(record);
-                if (editable) {
-                    return (
-                        <span>
-                            <Button type="link" onClick={() => save(record.id)} style={{ marginRight: 8 }}>Save</Button>
-                            <Popconfirm title="Sure to cancel?" onConfirm={cancel}><Button type="link">Cancel</Button></Popconfirm>
-                        </span>
-                    );
-                }
-                return (
+                return editable ? (
+                    <span>
+                        <Button type="link" onClick={() => save(record.id)} style={{ marginRight: 8 }}>Save</Button>
+                        <Popconfirm title="Sure to cancel?" onConfirm={cancel}><Button type="link">Cancel</Button></Popconfirm>
+                    </span>
+                ) : (
                     <Space>
-                        <Tooltip title={record.fully_delivered ? 'This order has already been fully delivered. Please create a new order instead.' : 'Edit'}>
-                            <Button
-                                icon={<EditOutlined />}
-                                disabled={record.fully_delivered}
-                                onClick={() => edit(record)}
-                            />
-                        </Tooltip>
-                        <Popconfirm title="Are you sure to delete this order?" onConfirm={() => deleteLog(record.id)}>
-                            <Button icon={<DeleteOutlined />} danger />
+                        <Button type="link" icon={<EditOutlined />} disabled={editingKey !== ''} onClick={() => edit(record)} />
+                        <Popconfirm title="Sure to delete?" onConfirm={() => deleteLog(record.id).then(onDataChange)}>
+                            <Button type="link" danger icon={<DeleteOutlined />} />
                         </Popconfirm>
                     </Space>
                 );
@@ -427,7 +418,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         // Only pass inputType/options if they exist on the column
         return {
             ...col,
-            onCell: (record: Order) => {
+            onCell: (record: SalesLog) => {
                 const base = {
                     record,
                     dataIndex: col.dataIndex,
@@ -514,9 +505,9 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                     sizes,
                     date: dayjs(values.date).format('YYYY-MM-DD'),
                     product_id: productId,
-                    operation: 'Order',
+                    operation: 'Sale',
                 };
-                save('new_row', newRow as Partial<Order>);
+                save('new_row', newRow as Partial<SalesLog>);
             }}>
                 <Form.Item name="date" rules={[{ required: true }]}><DatePicker format="YYYY-MM-DD"/></Form.Item>
                 <Form.Item name="colour_code" rules={[{ required: true }]}> 
@@ -621,19 +612,13 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     // Handler for Excel download
     const handleExcelDownload = async () => {
         try {
-            const response = await fetch('/api/v1/orders/export-excel', {
+            const response = await fetch('/api/v1/sales/export-excel', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
                 },
-                body: JSON.stringify({
-                    party_name: headerFields.partyName,
-                    destination: headerFields.destination,
-                    style: headerFields.style,
-                    code: headerFields.code,
-                    date: headerFields.date,
-                }),
+                body: JSON.stringify(headerFields),
             });
             if (!response.ok) {
                 throw new Error('Failed to download Excel file');
@@ -642,7 +627,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'orders-log.xlsx';
+            a.download = 'sales-log.xlsx';
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -653,33 +638,6 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         }
     };
 
-    const [bulkActionModalVisible, setBulkActionModalVisible] = useState(false);
-
-    const handleAppend = async () => {
-        if (parsedRows.length === 0) {
-            message.error('No parsed rows to save');
-            return;
-        }
-        try {
-            // Convert parsed rows to Order format
-            const logsToCreate = parsedRows.map(row => ({
-                ...row,
-                product_id: productId,
-                operation: 'Order',
-                date: row.date ? dayjs(row.date).format('YYYY-MM-DD') : undefined,
-                sizes: row.sizes ? Object.fromEntries(Object.entries(row.sizes).map(([k, v]) => [k, Number(v)])) : undefined,
-            }));
-            await createLogsBulk(logsToCreate);
-            setExcelText('');
-            setParsedRows([]);
-            setShowParsedRows(false);
-            message.success('Successfully appended orders');
-        } catch (error) {
-            message.error('Failed to append logs');
-        }
-    };
-
-    const printRef = useRef<HTMLDivElement>(null);
     const handlePrint = () => {
         if (!printRef.current) return;
         const printContents = printRef.current.innerHTML;
@@ -704,6 +662,15 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             {/* Bulk Paste Panel */}
             <Collapse style={{ marginBottom: 16 }}>
                 <Collapse.Panel header="Bulk Paste from Excel" key="bulk-paste">
+                    <div style={{ marginBottom: 8, color: '#333', fontSize: 15, fontWeight: 500 }}>
+                        Paste your Excel cells here (tab-delimited). The first row should be column headers.<br/>
+                        <span style={{ fontWeight: 400, color: '#666', fontSize: 14 }}>Required columns: Date, Colour Code, Colour, S, M, L, XL, XXL, 3XL, 4XL, 5XL</span>
+                    </div>
+                    <div style={{ marginBottom: 8, background: '#f8fafc', border: '1px solid #e0e0e0', borderRadius: 4, padding: 8, fontFamily: 'monospace', fontSize: 14 }}>
+                        Date	Colour Code	Colour	S	M	L	XL	XXL	3XL	4XL	5XL<br/>
+                        2024-07-01	1	Black	10	5	2	0	0	0	0	0<br/>
+                        2024-07-01	2	Red	8	6	1	0	0	0	0	0
+                    </div>
                     <TextArea
                         placeholder={`Date\tColour Code\tColour\tS\tM\tL\tXL\tXXL\t3XL\t4XL\t5XL\n2024-07-01\t1\tBlack\t10\t5\t2\t0\t0\t0\t0\t0`}
                         rows={4}
@@ -717,7 +684,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                         </Button>
                         <Button 
                             type="default" 
-                            onClick={() => setBulkActionModalVisible(true)}
+                            onClick={() => setOverwriteModalVisible(true)}
                             disabled={!showParsedRows || parsedRows.length === 0}
                         >
                             Save
@@ -743,6 +710,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                         onFinish={(values) => {
                             const { dateRange, agency_name, store_name } = values;
                             const filterParams: Record<string, any> = {};
+                            
                             // Regular date range and agency/store filter
                             if (dateRange && dateRange.length === 2) {
                                 filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
@@ -771,10 +739,10 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                             <Button onClick={() => { filterForm.resetFields(); fetchLogs({}); }}>Reset</Button>
                         </Form.Item>
                         <Form.Item>
-                            <Button danger type="default" onClick={() => setBulkDeleteModalVisible(true)} disabled={logs.length === 0} icon={<DeleteOutlined />} />
+                            <Button onClick={handleDownloadPreview} type="default">Download</Button>
                         </Form.Item>
                         <Form.Item>
-                            <Button onClick={handleDownloadPreview} type="default">Download</Button>
+                            <Button danger type="default" onClick={() => setBulkDeleteModalVisible(true)} disabled={logs.length === 0} icon={<DeleteOutlined />} />
                         </Form.Item>
                     </Form>
                 </Collapse.Panel>
@@ -820,7 +788,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                 cancelText="Cancel"
             >
                 <p>
-                    You are about to replace all existing entries for this product in the Orders log with the rows you just loaded. 
+                    You are about to replace all existing entries for this product in the Sales log with the rows you just loaded. 
                     This action cannot be undone. Proceed?
                 </p>
             </Modal>
@@ -831,7 +799,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                 open={bulkDeleteModalVisible}
                 onOk={async () => {
                     try {
-                        await deleteLogsBulk(lastFilterParams.start_date, lastFilterParams.store_name);
+                        await deleteLogsBulk(lastFilterParams.date, lastFilterParams.store_name);
                         setBulkDeleteModalVisible(false);
                         fetchLogs(lastFilterParams);
                         message.success('Bulk delete successful');
@@ -865,7 +833,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                     <Input addonBefore="Code" value={headerFields.code} onChange={e => setHeaderFields(f => ({ ...f, code: e.target.value }))} style={{ width: 120 }} />
                     <Input addonBefore="Date" value={headerFields.date} onChange={e => setHeaderFields(f => ({ ...f, date: e.target.value }))} style={{ width: 160 }} />
                 </div>
-                <div ref={printRef} style={{ overflowX: 'auto', border: '1px solid #e0e0e0', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0001', padding: 0 }}>
+                <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0001', padding: 0 }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', fontFamily: 'Segoe UI, Arial, sans-serif' }}>
                         <thead>
                             <tr>
@@ -928,38 +896,17 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                         </tbody>
                     </table>
                 </div>
+                <div ref={printRef}>
+                    {/* ...table preview code... */}
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, gap: 8 }}>
                     <Button onClick={() => setDownloadModalVisible(false)} style={{ marginRight: 8 }}>Cancel</Button>
                     <Button onClick={handlePrint} style={{ background: '#f5f5f5', color: '#333', border: '1px solid #bdbdbd' }}>Print</Button>
                     <Button type="primary" onClick={handleExcelDownload}>Download</Button>
                 </div>
             </Modal>
-
-            {/* Bulk Action Modal */}
-            <Modal
-                title="Bulk Upload Action"
-                open={bulkActionModalVisible}
-                onCancel={() => setBulkActionModalVisible(false)}
-                footer={null}
-            >
-                <p>Do you want to <b>overwrite</b> existing entries for these dates and stores, or <b>append</b> the new rows to the existing data?</p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <Tooltip title="Delete all existing entries for these dates and stores, then upload the new rows.">
-                        <Button onClick={async () => {
-                            setBulkActionModalVisible(false);
-                            await handleOverwrite();
-                        }} type="primary" danger>Overwrite</Button>
-                    </Tooltip>
-                    <Tooltip title="Add the new rows to the existing data. Existing entries will not be deleted.">
-                        <Button onClick={async () => {
-                            setBulkActionModalVisible(false);
-                            await handleAppend();
-                        }} type="primary">Append</Button>
-                    </Tooltip>
-                </div>
-            </Modal>
         </Form>
     );
 };
 
-export default OrdersLogTable; 
+export default SalesLogTable; 

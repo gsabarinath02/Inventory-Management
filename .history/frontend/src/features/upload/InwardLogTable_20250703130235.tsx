@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, Modal, message, Tooltip } from 'antd';
+import { Table, Button, Popconfirm, Form, Input, Select, DatePicker, InputNumber, Space, Collapse, Modal, message } from 'antd';
 import dayjs from 'dayjs';
-import { Order, ColorCodePair } from '../../types';
-import { useOrders } from '../../hooks/useOrders';
+import { InwardLog } from '../../types';
+import { useInwardLogs } from '../../hooks/useInwardLogs';
 import { parseExcelData, ParsedExcelRow } from '../../utils';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 
+const { Option } = Select;
 const { TextArea } = Input;
 
 interface EditableCellProps {
@@ -14,117 +15,30 @@ interface EditableCellProps {
   dataIndex: string;
   title: any;
   inputType: 'number' | 'text' | 'date' | 'select';
-  record: Order;
+  record: InwardLog;
   index: number;
   children: React.ReactNode;
   options?: string[];
 }
 
-interface OrdersLogTableProps {
-    productId: number;
-    onDataChange: () => void;
-    availableColors: string[];
-    availableSizes: string[];
-    colorCodePairs: ColorCodePair[];
-    isReadOnly: boolean;
-    allowedAgencies?: string[];
-    allowedStores?: string[];
-}
-
-const getColorAndCodeOptions = (colorCodePairs: ColorCodePair[], colorValue?: string, codeValue?: number) => {
-  let colorOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false })) : [];
-  let codeOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false })) : [];
-  if (codeValue) {
-    const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.colour_code === codeValue) : undefined;
-    colorOptions = Array.isArray(colorOptions) ? colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false })) : [];
-  }
-  if (colorValue) {
-    const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.color === colorValue) : undefined;
-    codeOptions = Array.isArray(codeOptions) ? codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false })) : [];
-  }
-  return { colorOptions, codeOptions };
-};
-
-const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair[]; form: any; allowedAgencies?: string[]; allowedStores?: string[] }> = ({
+const EditableCell: React.FC<EditableCellProps> = ({
   editing,
   dataIndex,
   title,
   inputType,
   children,
   options = [],
-  colorCodePairs,
-  form,
-  allowedAgencies,
-  allowedStores,
   ...restProps
 }) => {
-  const colorValue = form ? form.getFieldValue('color') : undefined;
-  const codeValue = form ? form.getFieldValue('colour_code') : undefined;
-  const { colorOptions, codeOptions } = getColorAndCodeOptions(colorCodePairs, colorValue, codeValue);
-
-  const handleColorChange = (color: string) => {
-    const found = colorCodePairs.find(pair => pair.color === color);
-    if (found) {
-      form.setFieldsValue({ colour_code: found.colour_code });
-    } else {
-      form.setFieldsValue({ colour_code: undefined });
-    }
-  };
-  const handleCodeChange = (code: number) => {
-    const found = colorCodePairs.find(pair => pair.colour_code === code);
-    if (found) {
-      form.setFieldsValue({ color: found.color });
-    } else {
-      form.setFieldsValue({ color: undefined });
-    }
-  };
-
   const getInputNode = () => {
     if (inputType === 'number') return <InputNumber />;
     if (inputType === 'date') return <DatePicker format="YYYY-MM-DD" />;
     if (inputType === 'select') {
-      if (dataIndex === 'color') {
-        return (
-          <Select
-            options={colorOptions}
-            onChange={handleColorChange}
-            value={colorValue}
-            style={{ width: 120 }}
-            placeholder="Color"
-          />
-        );
-      }
-      if (dataIndex === 'colour_code') {
-        return (
-          <Select
-            options={codeOptions}
-            onChange={handleCodeChange}
-            value={codeValue}
-            style={{ width: 120 }}
-            placeholder="Colour Code"
-          />
-        );
-      }
-      if (dataIndex === 'agency_name' && Array.isArray(allowedAgencies)) {
-        return <Select 
-          options={allowedAgencies.map(a => ({ label: a, value: a }))} 
-          placeholder="Agency"
-          showSearch
-          filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-          allowClear
-        />;
-      }
-      if (dataIndex === 'store_name' && Array.isArray(allowedStores)) {
-        return <Select 
-          options={allowedStores.map(s => ({ label: s, value: s }))} 
-          placeholder="Store"
-          showSearch
-          filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-          allowClear
-          notFoundContent={null}
-        />;
-      }
-      return <Select options={Array.isArray(options) ? options.map(opt => ({ label: opt, value: opt })) : []} />;
+      return (
+        <Select>
+          {Array.isArray(options) ? options.map(opt => <Option key={opt} value={opt}>{opt}</Option>) : null}
+        </Select>
+      );
     }
     return <Input />;
   };
@@ -135,7 +49,7 @@ const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair
         <Form.Item
           name={dataIndex}
           style={{ margin: 0 }}
-          rules={[{ required: !['agency_name', 'store_name'].includes(dataIndex), message: `Please Input ${title}!` }]}
+          rules={[{ required: dataIndex !== 'stakeholder_name', message: `Please Input ${title}!` }]}
         >
           {getInputNode()}
         </Form.Item>
@@ -146,18 +60,30 @@ const EditableCell: React.FC<EditableCellProps & { colorCodePairs: ColorCodePair
   );
 };
 
-const OrdersLogTable: React.FC<OrdersLogTableProps> = ({ 
+interface ColorCodePair {
+  color: string;
+  colour_code: number;
+}
+
+interface InwardLogTableProps {
+    productId: number;
+    onDataChange: () => void;
+    availableColors: string[];
+    availableSizes: string[];
+    colorCodePairs: ColorCodePair[];
+    isReadOnly: boolean;
+}
+
+const InwardLogTable: React.FC<InwardLogTableProps> = ({ 
     productId, 
     onDataChange, 
     availableColors, 
     availableSizes,
     colorCodePairs,
-    isReadOnly,
-    allowedAgencies,
-    allowedStores
+    isReadOnly
 }) => {
     if (typeof productId !== 'number' || isNaN(productId)) return null;
-    const { logs, loading, createLog, createLogsBulk, deleteLogsBulk, updateLog, deleteLog, fetchLogs } = useOrders(productId);
+    const { logs, loading, createLog, createLogsBulk, deleteLogsBulk, updateLog, deleteLog, fetchLogs } = useInwardLogs(productId);
     const [form] = Form.useForm();
     const [editingKey, setEditingKey] = useState<React.Key>('');
     const [isAdding, setIsAdding] = useState(false);
@@ -172,19 +98,13 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     const [lastFilterParams, setLastFilterParams] = useState<Record<string, any>>({});
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [downloadModalVisible, setDownloadModalVisible] = useState(false);
-    const [headerFields, setHeaderFields] = useState({
-        partyName: '',
-        destination: '',
-        style: '',
-        code: '',
-        date: dayjs().format('YYYY-MM-DD'),
-    });
+    const [headerFields, setHeaderFields] = useState({ partyName: '', destination: '', style: '', code: '', date: '' });
     const { token } = useAuth();
-    console.log("JWT token used for Excel export:", token);
+    const printRef = useRef<HTMLDivElement>(null);
 
-    const isEditing = (record: Order) => record.id === editingKey;
+    const isEditing = (record: InwardLog) => record.id === editingKey;
 
-    const edit = (record: Partial<Order> & { id: React.Key }) => {
+    const edit = (record: Partial<InwardLog> & { id: React.Key }) => {
         form.setFieldsValue({ ...record, date: record.date ? dayjs(record.date, 'YYYY-MM-DD') : null });
         setEditingKey(record.id);
     };
@@ -194,27 +114,26 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         setEditingKey('');
     };
 
-    const save = async (key: React.Key, row?: Partial<Order>) => {
+    const save = async (key: React.Key, row?: InwardLog) => {
         try {
+            const values = row ? row : await form.validateFields();
+            // Remove any size_X fields from values
+            const cleanedValues = { ...values };
+            Object.keys(cleanedValues).forEach(k => {
+                if (k.startsWith('size_')) delete cleanedValues[k];
+            });
+            const newRow = {
+                ...cleanedValues,
+                date: dayjs(values.date).format('YYYY-MM-DD'),
+                product_id: productId,
+                operation: 'Inward',
+            };
+            
             if (key === 'new_row') {
-                // row already contains sizes
-                const newRow = {
-                    ...row,
-                    date: row?.date ? dayjs(row.date).format('YYYY-MM-DD') : undefined,
-                    sizes: row?.sizes ? Object.fromEntries(Object.entries(row.sizes).map(([k, v]) => [k, Number(v)])) : undefined,
-                };
-                await createLog(newRow as any);
+                await createLog(newRow);
                 setIsAdding(false);
             } else {
-                const values = await form.validateFields();
-                const payload = {
-                    ...values,
-                    sizes: values.sizes ? Object.fromEntries(Object.entries(values.sizes).map(([k, v]) => [k, Number(v)])) : undefined,
-                    date: values.date ? dayjs(values.date).format('YYYY-MM-DD') : undefined,
-                    product_id: productId,
-                    operation: 'Order'
-                };
-                await updateLog(key as number, payload);
+                await updateLog(key as number, newRow);
             }
             setEditingKey('');
             onDataChange();
@@ -226,6 +145,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     const handleAddClick = () => {
         setIsAdding(true);
         form.resetFields();
+        form.setFieldsValue({ date: dayjs() });
     };
 
     // Bulk paste functions
@@ -235,7 +155,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             return;
         }
 
-        const result = parseExcelData(excelText, availableSizes, false);
+        const result = parseExcelData(excelText, availableSizes, true);
         if (!result.success) {
             message.error(result.error || 'Failed to parse Excel data');
             return;
@@ -278,23 +198,21 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         }
 
         try {
-            // Convert parsed rows to Order format
+            // Convert parsed rows to InwardLog format
             const logsToCreate = parsedRows.map(row => ({
                 ...row,
                 product_id: productId,
-                operation: 'Order',
-                date: row.date ? dayjs(row.date).format('YYYY-MM-DD') : undefined,
-                sizes: row.sizes ? Object.fromEntries(Object.entries(row.sizes).map(([k, v]) => [k, Number(v)])) : undefined,
+                operation: 'Inward',
             }));
 
-            // Delete existing logs for the same dates and stores
+            // Delete existing logs for the same dates and stakeholders
             const uniqueDates = [...new Set(parsedRows.map(row => row.date))];
-            const uniqueStores = [...new Set(parsedRows.map(row => row.store_name).filter(Boolean))];
+            const uniqueStakeholders = [...new Set(parsedRows.map(row => row.stakeholder_name).filter(Boolean))];
 
             for (const date of uniqueDates) {
-                for (const store of uniqueStores) {
-                    if (store) {
-                        await deleteLogsBulk(date, store);
+                for (const stakeholder of uniqueStakeholders) {
+                    if (stakeholder) {
+                        await deleteLogsBulk(date, stakeholder);
                     }
                 }
             }
@@ -308,7 +226,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             setShowParsedRows(false);
             setOverwriteModalVisible(false);
             
-            message.success('Successfully saved orders');
+            message.success('Successfully saved inward logs');
         } catch (error) {
             message.error('Failed to save logs');
         }
@@ -318,10 +236,10 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     const sizeColumns = Array.isArray(availableSizes)
         ? availableSizes.map(size => ({
             title: size,
-            dataIndex: ['sizes', size], // Use nested dataIndex for consistency
+            dataIndex: ['sizes', size],
             editable: true,
-            render: (_: any, record: Order) => (record.sizes && record.sizes[size]) || 0,
-            sorter: (a: Order, b: Order) => ((a.sizes && a.sizes[size]) || 0) - ((b.sizes && b.sizes[size]) || 0),
+            render: (_: any, record: InwardLog) => (record.sizes && record.sizes[size]) || 0,
+            sorter: (a: InwardLog, b: InwardLog) => ((a.sizes && a.sizes[size]) || 0) - ((b.sizes && b.sizes[size]) || 0),
         }))
         : [];
 
@@ -333,14 +251,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             editable: true,
             inputType: 'date' as const,
             render: (text: string) => dayjs(text).format('YYYY-MM-DD'),
-            sorter: (a: Order, b: Order) => new Date(a.date || '1970-01-01').getTime() - new Date(b.date || '1970-01-01').getTime(),
-        },
-        {
-            title: 'Order Number',
-            dataIndex: 'order_number',
-            editable: false,
-            render: (num: number) => num !== undefined ? num : '',
-            sorter: (a: Order, b: Order) => (a.order_number || 0) - (b.order_number || 0),
+            sorter: (a: InwardLog, b: InwardLog) => new Date(a.date || '1970-01-01').getTime() - new Date(b.date || '1970-01-01').getTime(),
         },
         {
             title: 'Colour Code',
@@ -348,7 +259,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             editable: true,
             inputType: 'number' as const,
             render: (code: number) => code !== undefined ? code : '',
-            sorter: (a: Order, b: Order) => (a.colour_code || 0) - (b.colour_code || 0),
+            sorter: (a: InwardLog, b: InwardLog) => (a.colour_code || 0) - (b.colour_code || 0),
         },
         {
             title: 'Color',
@@ -356,48 +267,39 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             editable: true,
             inputType: 'select' as const,
             options: availableColors,
-            sorter: (a: Order, b: Order) => (a.color || '').localeCompare(b.color || ''),
+            sorter: (a: InwardLog, b: InwardLog) => (a.color || '').localeCompare(b.color || ''),
         },
         {
-            title: 'Agency',
-            dataIndex: 'agency_name',
+            title: 'Category',
+            dataIndex: 'category',
             editable: true,
             inputType: 'select' as const,
-            options: allowedAgencies,
-            sorter: (a: Order, b: Order) => (a.agency_name || '').localeCompare(b.agency_name || ''),
+            options: ['Supply', 'Return'],
+            sorter: (a: InwardLog, b: InwardLog) => (a.category || '').localeCompare(b.category || ''),
         },
         {
-            title: 'Store',
-            dataIndex: 'store_name',
+            title: 'Stakeholder',
+            dataIndex: 'stakeholder_name',
             editable: true,
-            inputType: 'select' as const,
-            options: allowedStores,
-            sorter: (a: Order, b: Order) => (a.store_name || '').localeCompare(b.store_name || ''),
+            inputType: 'text' as const,
+            sorter: (a: InwardLog, b: InwardLog) => (a.stakeholder_name || '').localeCompare(b.stakeholder_name || ''),
         },
         {
             title: 'Operation',
             dataIndex: 'operation',
-            render: (_: any, record: Order) => {
+            sorter: (a: InwardLog, b: InwardLog) => (a.operation || '').localeCompare(b.operation || ''),
+            render: (_: any, record: InwardLog) => {
                 const editable = isEditing(record);
-                if (editable) {
-                    return (
-                        <span>
-                            <Button type="link" onClick={() => save(record.id)} style={{ marginRight: 8 }}>Save</Button>
-                            <Popconfirm title="Sure to cancel?" onConfirm={cancel}><Button type="link">Cancel</Button></Popconfirm>
-                        </span>
-                    );
-                }
-                return (
+                return editable ? (
+                    <span>
+                        <Button type="link" onClick={() => save(record.id)} style={{ marginRight: 8 }}>Save</Button>
+                        <Popconfirm title="Sure to cancel?" onConfirm={cancel}><Button type="link">Cancel</Button></Popconfirm>
+                    </span>
+                ) : (
                     <Space>
-                        <Tooltip title={record.fully_delivered ? 'This order has already been fully delivered. Please create a new order instead.' : 'Edit'}>
-                            <Button
-                                icon={<EditOutlined />}
-                                disabled={record.fully_delivered}
-                                onClick={() => edit(record)}
-                            />
-                        </Tooltip>
-                        <Popconfirm title="Are you sure to delete this order?" onConfirm={() => deleteLog(record.id)}>
-                            <Button icon={<DeleteOutlined />} danger />
+                        <Button type="link" icon={<EditOutlined />} disabled={editingKey !== ''} onClick={() => edit(record)} />
+                        <Popconfirm title="Sure to delete?" onConfirm={() => deleteLog(record.id).then(onDataChange)}>
+                            <Button type="link" danger icon={<DeleteOutlined />} />
                         </Popconfirm>
                     </Space>
                 );
@@ -407,13 +309,12 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
 
     let columns = [
         staticColumns[0], // Date
-        staticColumns[1], // Order Number
-        staticColumns[2], // Colour Code
-        staticColumns[3], // Color
+        staticColumns[1], // Colour Code
+        staticColumns[2], // Color
         ...sizeColumns,
-        staticColumns[4], // Agency
-        staticColumns[5], // Store
-        staticColumns[6], // Operation
+        staticColumns[3], // Category
+        staticColumns[4], // Stakeholder
+        staticColumns[5], // Operation
     ];
 
     if (isReadOnly) {
@@ -427,7 +328,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         // Only pass inputType/options if they exist on the column
         return {
             ...col,
-            onCell: (record: Order) => {
+            onCell: (record: InwardLog) => {
                 const base = {
                     record,
                     dataIndex: col.dataIndex,
@@ -458,19 +359,17 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         let colorOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.color, value: pair.color, disabled: false })) : [];
         let codeOptions = Array.isArray(colorCodePairs) ? colorCodePairs.map(pair => ({ label: pair.colour_code, value: pair.colour_code, disabled: false })) : [];
         if (codeValue) {
-          // If a code is selected, only allow the matching color
           const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.colour_code === codeValue) : undefined;
           colorOptions = Array.isArray(colorOptions) ? colorOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.color : false })) : [];
         }
         if (colorValue) {
-          // If a color is selected, only allow the matching code
           const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.color === colorValue) : undefined;
           codeOptions = Array.isArray(codeOptions) ? codeOptions.map(opt => ({ ...opt, disabled: found ? opt.value !== found.colour_code : false })) : [];
         }
 
         // Handlers to sync fields
         const handleColorChange = (color: string) => {
-            const found = colorCodePairs.find(pair => pair.color === color);
+            const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.color === color) : undefined;
             if (found) {
                 form.setFieldsValue({ colour_code: found.colour_code });
             } else {
@@ -478,7 +377,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             }
         };
         const handleCodeChange = (code: number) => {
-            const found = colorCodePairs.find(pair => pair.colour_code === code);
+            const found = Array.isArray(colorCodePairs) ? colorCodePairs.find(pair => pair.colour_code === code) : undefined;
             if (found) {
                 form.setFieldsValue({ color: found.color });
             } else {
@@ -487,39 +386,29 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         };
 
         return (
-            <Form form={form} layout="inline" style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }} onFinish={() => {
+            <Form form={form} layout="inline" style={{ marginBottom: 16 }} onFinish={() => {
                 const values = form.getFieldsValue();
-                // Build sizes object from availableSizes and values
                 const sizes: Record<string, number> = {};
                 availableSizes.forEach(size => {
                     const val = values[`size_${size}`];
                     if (val !== undefined && val !== null && val !== '') sizes[size] = Number(val);
                 });
-                // Remove all size_X fields from cleanedValues
-                const cleanedValues: Record<string, any> = { ...values };
+                // Remove any size_X fields from values
+                const cleanedValues = { ...values };
                 Object.keys(cleanedValues).forEach(k => {
                     if (k.startsWith('size_')) delete cleanedValues[k];
                 });
-                // Validation: require color, colour_code, and at least one size > 0
-                if (!values.color || !values.colour_code) {
-                    message.error('Color and Colour Code are required.');
-                    return;
-                }
-                if (Object.keys(sizes).length === 0 || Object.values(sizes).every(qty => qty <= 0)) {
-                    message.error('At least one size with quantity > 0 is required.');
-                    return;
-                }
                 const newRow = {
                     ...cleanedValues,
                     sizes,
                     date: dayjs(values.date).format('YYYY-MM-DD'),
                     product_id: productId,
-                    operation: 'Order',
+                    operation: 'Inward',
                 };
-                save('new_row', newRow as Partial<Order>);
+                save('new_row', newRow);
             }}>
                 <Form.Item name="date" rules={[{ required: true }]}><DatePicker format="YYYY-MM-DD"/></Form.Item>
-                <Form.Item name="colour_code" rules={[{ required: true }]}> 
+                <Form.Item name="colour_code" rules={[{ required: true }]}>
                     <Select
                         placeholder="Colour Code"
                         style={{width: 120}}
@@ -528,7 +417,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                         value={codeValue}
                     />
                 </Form.Item>
-                <Form.Item name="color" rules={[{ required: true }]}> 
+                <Form.Item name="color" rules={[{ required: true }]}>
                     <Select
                         placeholder="Color"
                         style={{width: 120}}
@@ -538,29 +427,17 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                     />
                 </Form.Item>
                 {availableSizes.map(size => (
-                    <Form.Item key={size} name={`size_${size}`} label={size} style={{marginBottom:0, minWidth: 80}}>
+                    <Form.Item key={size} name={`size_${size}`} label={size} style={{marginBottom:0}}>
                         <InputNumber placeholder={size} min={0} />
                     </Form.Item>
                 ))}
-                <Form.Item name="agency_name">
-                  <Select
-                    placeholder="Agency"
-                    options={Array.isArray(allowedAgencies) ? allowedAgencies.map(a => ({ label: a, value: a })) : []}
-                    showSearch
-                    filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                    allowClear
-                  />
+                <Form.Item name="category" initialValue="Supply" rules={[{ required: true }]}> 
+                    <Select style={{width: 120}}>
+                        <Option value="Supply">Supply</Option>
+                        <Option value="Return">Return</Option>
+                    </Select>
                 </Form.Item>
-                <Form.Item name="store_name">
-                  <Select
-                    placeholder="Store"
-                    options={Array.isArray(allowedStores) ? allowedStores.map(s => ({ label: s, value: s })) : []}
-                    showSearch
-                    filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                    allowClear
-                    notFoundContent={null}
-                  />
-                </Form.Item>
+                <Form.Item name="stakeholder_name"><Input placeholder="Stakeholder"/></Form.Item>
                 <Form.Item>
                     <Button htmlType="submit" type="primary">Save</Button>
                     <Button onClick={cancel} style={{marginLeft: 8}}>Cancel</Button>
@@ -583,8 +460,8 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                 key: size,
                 render: (sizes: Record<string, number>) => sizes[size] || 0
             })),
-            { title: 'Agency', dataIndex: 'agency_name', key: 'agency_name' },
-            { title: 'Store', dataIndex: 'store_name', key: 'store_name' },
+            { title: 'Category', dataIndex: 'category', key: 'category' },
+            { title: 'Stakeholder', dataIndex: 'stakeholder_name', key: 'stakeholder_name' },
         ];
 
         return (
@@ -621,19 +498,13 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
     // Handler for Excel download
     const handleExcelDownload = async () => {
         try {
-            const response = await fetch('/api/v1/orders/export-excel', {
+            const response = await fetch('/api/v1/inward/export-excel', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
                 },
-                body: JSON.stringify({
-                    party_name: headerFields.partyName,
-                    destination: headerFields.destination,
-                    style: headerFields.style,
-                    code: headerFields.code,
-                    date: headerFields.date,
-                }),
+                body: JSON.stringify(headerFields),
             });
             if (!response.ok) {
                 throw new Error('Failed to download Excel file');
@@ -642,7 +513,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'orders-log.xlsx';
+            a.download = 'inward-log.xlsx';
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -653,33 +524,6 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
         }
     };
 
-    const [bulkActionModalVisible, setBulkActionModalVisible] = useState(false);
-
-    const handleAppend = async () => {
-        if (parsedRows.length === 0) {
-            message.error('No parsed rows to save');
-            return;
-        }
-        try {
-            // Convert parsed rows to Order format
-            const logsToCreate = parsedRows.map(row => ({
-                ...row,
-                product_id: productId,
-                operation: 'Order',
-                date: row.date ? dayjs(row.date).format('YYYY-MM-DD') : undefined,
-                sizes: row.sizes ? Object.fromEntries(Object.entries(row.sizes).map(([k, v]) => [k, Number(v)])) : undefined,
-            }));
-            await createLogsBulk(logsToCreate);
-            setExcelText('');
-            setParsedRows([]);
-            setShowParsedRows(false);
-            message.success('Successfully appended orders');
-        } catch (error) {
-            message.error('Failed to append logs');
-        }
-    };
-
-    const printRef = useRef<HTMLDivElement>(null);
     const handlePrint = () => {
         if (!printRef.current) return;
         const printContents = printRef.current.innerHTML;
@@ -704,6 +548,15 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             {/* Bulk Paste Panel */}
             <Collapse style={{ marginBottom: 16 }}>
                 <Collapse.Panel header="Bulk Paste from Excel" key="bulk-paste">
+                    <div style={{ marginBottom: 8, color: '#333', fontSize: 15, fontWeight: 500 }}>
+                        Paste your Excel cells here (tab-delimited). The first row should be column headers.<br/>
+                        <span style={{ fontWeight: 400, color: '#666', fontSize: 14 }}>Required columns: Date, Colour Code, Colour, S, M, L, XL, XXL, 3XL, 4XL, 5XL</span>
+                    </div>
+                    <div style={{ marginBottom: 8, background: '#f8fafc', border: '1px solid #e0e0e0', borderRadius: 4, padding: 8, fontFamily: 'monospace', fontSize: 14 }}>
+                        Date	Colour Code	Colour	S	M	L	XL	XXL	3XL	4XL	5XL<br/>
+                        2024-07-01	1	Black	10	5	2	0	0	0	0	0<br/>
+                        2024-07-01	2	Red	8	6	1	0	0	0	0	0
+                    </div>
                     <TextArea
                         placeholder={`Date\tColour Code\tColour\tS\tM\tL\tXL\tXXL\t3XL\t4XL\t5XL\n2024-07-01\t1\tBlack\t10\t5\t2\t0\t0\t0\t0\t0`}
                         rows={4}
@@ -717,7 +570,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                         </Button>
                         <Button 
                             type="default" 
-                            onClick={() => setBulkActionModalVisible(true)}
+                            onClick={() => setOverwriteModalVisible(true)}
                             disabled={!showParsedRows || parsedRows.length === 0}
                         >
                             Save
@@ -741,15 +594,19 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                         form={filterForm}
                         layout="inline"
                         onFinish={(values) => {
-                            const { dateRange, agency_name, store_name } = values;
+                            const { dateRange, stakeholder, date, stakeholder_name } = values;
                             const filterParams: Record<string, any> = {};
-                            // Regular date range and agency/store filter
-                            if (dateRange && dateRange.length === 2) {
-                                filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
-                                filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
+                            
+                            if (date && stakeholder_name) {
+                                filterParams.date = dayjs(date).format('YYYY-MM-DD');
+                                filterParams.stakeholder_name = stakeholder_name;
+                            } else {
+                                if (dateRange && dateRange.length === 2) {
+                                    filterParams.start_date = dateRange[0].format('YYYY-MM-DD');
+                                    filterParams.end_date = dateRange[1].format('YYYY-MM-DD');
+                                }
+                                if (stakeholder) filterParams.stakeholder = stakeholder;
                             }
-                            if (agency_name) filterParams.agency_name = agency_name;
-                            if (store_name) filterParams.store_name = store_name;
                             setLastFilterParams(filterParams);
                             fetchLogs(filterParams);
                         }}
@@ -758,23 +615,17 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                         <Form.Item name="dateRange" label="Date Range">
                             <DatePicker.RangePicker format="YYYY-MM-DD" />
                         </Form.Item>
-                        <Form.Item name="agency_name" label="Agency">
-                            <Input placeholder="Agency" allowClear style={{ width: 120 }} />
-                        </Form.Item>
-                        <Form.Item name="store_name" label="Store">
-                            <Input placeholder="Store" allowClear style={{ width: 120 }} />
+                        <Form.Item name="stakeholder" label="Stakeholder">
+                            <Input placeholder="Stakeholder" allowClear style={{ width: 180 }} />
                         </Form.Item>
                         <Form.Item>
                             <Button type="primary" htmlType="submit">Apply</Button>
                         </Form.Item>
                         <Form.Item>
-                            <Button onClick={() => { filterForm.resetFields(); fetchLogs({}); }}>Reset</Button>
-                        </Form.Item>
-                        <Form.Item>
-                            <Button danger type="default" onClick={() => setBulkDeleteModalVisible(true)} disabled={logs.length === 0} icon={<DeleteOutlined />} />
-                        </Form.Item>
-                        <Form.Item>
                             <Button onClick={handleDownloadPreview} type="default">Download</Button>
+                        </Form.Item>
+                        <Form.Item>
+                            <Button danger type="default" onClick={() => setBulkDeleteModalVisible(true)} disabled={logs.length === 0}>Bulk Delete</Button>
                         </Form.Item>
                     </Form>
                 </Collapse.Panel>
@@ -785,7 +636,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
             ) : null}
             {isAdding && !isReadOnly && renderNewRowForm()}
             <Table
-                components={{ body: { cell: (props: any) => <EditableCell {...props} colorCodePairs={colorCodePairs} form={form} allowedAgencies={allowedAgencies} allowedStores={allowedStores} /> } }}
+                components={{ body: { cell: EditableCell } }}
                 bordered
                 dataSource={Array.isArray(logs) ? logs : []}
                 columns={mergedColumns}
@@ -820,7 +671,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                 cancelText="Cancel"
             >
                 <p>
-                    You are about to replace all existing entries for this product in the Orders log with the rows you just loaded. 
+                    You are about to replace all existing entries for this product in the Inward log with the rows you just loaded. 
                     This action cannot be undone. Proceed?
                 </p>
             </Modal>
@@ -831,7 +682,7 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                 open={bulkDeleteModalVisible}
                 onOk={async () => {
                     try {
-                        await deleteLogsBulk(lastFilterParams.start_date, lastFilterParams.store_name);
+                        await deleteLogsBulk(lastFilterParams.date, lastFilterParams.stakeholder_name || lastFilterParams.stakeholder);
                         setBulkDeleteModalVisible(false);
                         fetchLogs(lastFilterParams);
                         message.success('Bulk delete successful');
@@ -934,32 +785,8 @@ const OrdersLogTable: React.FC<OrdersLogTableProps> = ({
                     <Button type="primary" onClick={handleExcelDownload}>Download</Button>
                 </div>
             </Modal>
-
-            {/* Bulk Action Modal */}
-            <Modal
-                title="Bulk Upload Action"
-                open={bulkActionModalVisible}
-                onCancel={() => setBulkActionModalVisible(false)}
-                footer={null}
-            >
-                <p>Do you want to <b>overwrite</b> existing entries for these dates and stores, or <b>append</b> the new rows to the existing data?</p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <Tooltip title="Delete all existing entries for these dates and stores, then upload the new rows.">
-                        <Button onClick={async () => {
-                            setBulkActionModalVisible(false);
-                            await handleOverwrite();
-                        }} type="primary" danger>Overwrite</Button>
-                    </Tooltip>
-                    <Tooltip title="Add the new rows to the existing data. Existing entries will not be deleted.">
-                        <Button onClick={async () => {
-                            setBulkActionModalVisible(false);
-                            await handleAppend();
-                        }} type="primary">Append</Button>
-                    </Tooltip>
-                </div>
-            </Modal>
         </Form>
     );
 };
 
-export default OrdersLogTable; 
+export default InwardLogTable; 
